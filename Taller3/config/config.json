@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "taller-3-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/taller3/Taller3WebPart.js",
+          "manifest": "./src/webparts/taller3/Taller3WebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "Taller3WebPartStrings": "lib/webparts/taller3/loc/{locale}.js"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "taller-3-client-side-solution",
+    "id": "5c5563cb-feb7-4f59-bcf2-854b1570ab11",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.17.4"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "taller-3 description"
+      },
+      "longDescription": {
+        "default": "taller-3 description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "taller-3 Feature",
+        "description": "The feature that activates elements of the taller-3 solution.",
+        "id": "89494464-d2dd-4938-bb6f-3cafd167a943",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/taller-3.sppkg"
+  }
+}
