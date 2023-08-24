@@ -20,7 +20,6 @@ export interface IIPnPjsExampleState {
   errors: string[];
 }
 
-
 export default class PnPjsExample extends React.Component<IPnPjsExampleProps, IIPnPjsExampleState> {
   private LOG_SOURCE = "🅿PnPjsExample";
   private LIBRARY_NAME = "Documents";

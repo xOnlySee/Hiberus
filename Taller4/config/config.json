@@ -1,0 +1,19 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "taller-4-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/taller4/Taller4WebPart.js",
+          "manifest": "./src/webparts/taller4/Taller4WebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "Taller4WebPartStrings": "lib/webparts/taller4/loc/{locale}.js",
+    "ControlStrings": "node_modules/@pnp/spfx-controls-react/lib/loc/{locale}.js"
+  }
+}
