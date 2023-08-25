@@ -3,18 +3,25 @@ import styles from './Taller4.module.scss';
 import { ITaller4Props } from './ITaller4Props';
 
 //Nuevas importaciones
-import { PrimaryButton } from 'office-ui-fabric-react';
+import { Dropdown, IDropdownOption, PrimaryButton } from 'office-ui-fabric-react';
 import { Toggle } from 'office-ui-fabric-react';
+import { TaxonomyPicker, IPickerTerms } from '@pnp/spfx-controls-react'
 
 interface ITaller4State {
   isSwitchOn: boolean;
+  groupTypeSelected: string;
+  themeTypeSelected: string,
+  ambitTermnSelected: IPickerTerms;
 }
 
 export default class Taller4 extends React.Component<ITaller4Props, ITaller4State> {
   constructor(props: ITaller4Props) {
     super(props);
     this.state = {
-      isSwitchOn: false
+      isSwitchOn: false,
+      groupTypeSelected: "",
+      themeTypeSelected: "",
+      ambitTermnSelected: []
     };
   }
 
@@ -32,7 +39,26 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
     });
   }
 
+  private handleTaxonomyPickerChange_ambit = (terms: IPickerTerms) => {
+    this.setState({
+      //selectedTerms: terms
+    });
+  }
+
+
   public render(): React.ReactElement<ITaller4Props> {
+    const groupDropDownOptions: IDropdownOption[] = [
+      { key: 'option1', text: 'Opción 1' },
+      { key: 'option2', text: 'Opción 2' },
+      { key: 'option3', text: 'Opción 3' }
+    ];
+
+    const themeDropDownOptions: IDropdownOption[] = [
+      { key: 'option1', text: 'Opción 1' },
+      { key: 'option2', text: 'Opción 2' },
+      { key: 'option3', text: 'Opción 3' }
+    ];
+
     return (
       <section className={styles.taller4}>
         <div className={styles.buttonToggleContainer}>
@@ -48,6 +74,37 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
               checked={this.state.isSwitchOn}
               onChanged={this.handleSwitchChange}
             />
+          </div>
+
+          <div>
+            <Dropdown
+              label='Tipo de grupo'
+              selectedKey={this.state.groupTypeSelected}
+              options={groupDropDownOptions}
+              className={styles.customDropDown}
+              />
+          </div>
+
+          <div>
+            <Dropdown
+              label='Temática'
+              selectedKey={this.state.themeTypeSelected}
+              options={themeDropDownOptions}
+              className={styles.customDropDown}
+            />
+          </div>
+
+          <div>
+            <TaxonomyPicker
+              label='Ámbito'
+              allowMultipleSelections={true}
+              termsetNameOrID='' //Poner el ID de la taxonmia de ambito
+              onChange={this.handleTaxonomyPickerChange_ambit}
+              isTermSetSelectable={false}
+              includeDefaultTermActions={true}
+              panelTitle='Ámbito' 
+              context={this.props.context}
+              />
           </div>
         </div>
       </section>

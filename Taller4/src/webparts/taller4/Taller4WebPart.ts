@@ -29,7 +29,9 @@ export default class Taller4WebPart extends BaseClientSideWebPart<ITaller4WebPar
         isDarkTheme: this._isDarkTheme,
         environmentMessage: this._environmentMessage,
         hasTeamsContext: !!this.context.sdks.microsoftTeams,
-        userDisplayName: this.context.pageContext.user.displayName
+        userDisplayName: this.context.pageContext.user.displayName,
+
+        context: this.context
       }
     );
 
