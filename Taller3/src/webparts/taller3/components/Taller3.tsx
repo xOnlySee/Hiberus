@@ -34,6 +34,9 @@ interface ITaller3State {
   selectedResponsible: string;
 }
 
+/**
+ * Clase donde gestionaremos la lógica del WebPart
+ */
 export default class Taller3 extends React.Component<ITaller3Props, ITaller3State> {
   private LOG_SOURCE = "Taller3";
   private LIBRARY_NAME = "Listado noticias";
@@ -71,7 +74,6 @@ export default class Taller3 extends React.Component<ITaller3Props, ITaller3Stat
       this.handleSearchChange(this.state.searchTerm);
     }
   }  
-
 
   /**
    * Manejador de eventos que se llama cada vez que el usuario realiza cambios en el campo de búsqueda
@@ -127,7 +129,7 @@ export default class Taller3 extends React.Component<ITaller3Props, ITaller3Stat
     const filteredItems = this.state.items.filter(item =>
       !selectedResponsible || item.Responsible === selectedResponsible);
 
-      //Actualizamos el estado de la función "handleResponsibleChange"
+    //Actualizamos el estado de la función "handleResponsibleChange"
     this.setState({
       selectedResponsible,
       items: filteredItems
@@ -185,7 +187,7 @@ export default class Taller3 extends React.Component<ITaller3Props, ITaller3Stat
     //Almacenamos en la constante "categories" el listado de todas las categorias disponibles
     const categories = Array.from(new Set(this.state.items.map(item => item.Category)))
 
-    //Constante utilizado para crear las opciones (añadirlas al DropDown)
+    //Constante utilizado para crear las opciones de las categorias (añadirlas al DropDown)
     const categoryOptions = categories.map(category => ({
       key: category,
       text: category
@@ -203,20 +205,26 @@ export default class Taller3 extends React.Component<ITaller3Props, ITaller3Stat
       />
     );
 
-    // Función auxiliar para obtener la representación de texto del responsable
+    //Guardamos en la constante "getRespnsibleText" el contenido de la columna "Responsable"
     const getResponsibleText = (responsible: string | { Title: string }): string => {
+
+      //En caso de que "responsible" es de tipo String
       if (typeof responsible === 'string') {
+        //Devolvemos el contenido del parámetro de entrada
         return responsible;
+
+      //En cualquier otro caso
       } else {
+
+        //Devolvemos el contenido almacenado de "Title"
         return responsible.Title;
       }
     };
 
-    // ...
-
-    // Dentro de tu componente
+    //Almacenamos en la constante "responsibles" el listado de todos los responsables disponibles
     const responsibles = Array.from(new Set(this.state.items.map(item => item.Responsible)))
 
+    //Contante utilizado para crear las opciones del responsable (añadirlas al DropDown)
     const responsibleOptions = responsibles.map(responsible => {
       const responsibleText = getResponsibleText(responsible);
       return {
@@ -225,11 +233,14 @@ export default class Taller3 extends React.Component<ITaller3Props, ITaller3Stat
       };
     });
 
+    //Componente que permitirá al usuario filtrar por responsable
     const responsibleDropdown = (
       <Dropdown
         label="Filtrar por responsable"
         selectedKey={this.state.selectedResponsible}
         options={responsibleOptions}
+
+        //Permite definir la funcionabilidad en que caso de que el usuario eliga un responsable para filtrar
         onChange={(_, option) => this.handleResponsibleChange(option?.key as string)}
       />
     );  
