@@ -1,5 +1,4 @@
 import * as React from 'react';
-//import styles from './Taller3.module.scss';
 import { ITaller3Props } from './ITaller3Props';
 
 //Nuevas importaciones
@@ -13,11 +12,6 @@ import CardComponent from './CardComponent';
 
 export interface IAsyncAwaitPnPJsProps {
   description: string;
-}
-
-export interface Italler3State {
-  items: IFile[];
-  errors: string[];
 }
 
 interface ITaller3State {
