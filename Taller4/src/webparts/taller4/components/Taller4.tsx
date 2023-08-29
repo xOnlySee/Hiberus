@@ -78,8 +78,9 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
    */
   private handleAddGroupClic = () => {
     console.log("Botón de añadir grupo pulsado");
-    this.setState({showAddGroupForm: true});
+    this.setState({ showAddGroupForm: true }); // Cambiado a showAddGroupForm
   }
+
 
   /**
    * Método utilizado para definir y devolver la estructura y el contenido de la GUI del componente a renderizar
@@ -101,18 +102,16 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
     let listView = <DetailsList items={this.state.items} columns={columns} />;
 
     return (
-      <>
-        <div>
+      <div>
+        {!this.state.showAddGroupForm && (
           <PrimaryButton onClick={this.handleAddGroupClic}>Añadir grupo</PrimaryButton>
-        </div>
-        <div>
-          {this.state.showAddGroupForm ? (
-            <AddGroup />
-          ) : (
-            listView
-          )}
-        </div>
-      </>
+        )}
+        {this.state.showAddGroupForm ? (
+          <AddGroup context={this.props.context} />
+        ) : (
+          listView
+        )}
+      </div>
     );
-  }     
+  }
 }
