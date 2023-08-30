@@ -19,3 +19,11 @@ export interface IResponseItem {
     TipoGrupo: string;
     Tematica: string;
 }
+
+export interface ICodigoSector {
+    CodigoSector: string;
+}
+
+export interface ICodigoSectorResponse {
+    CodigoSector: string;
+}

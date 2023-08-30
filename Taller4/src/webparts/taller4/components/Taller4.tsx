@@ -77,7 +77,6 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
    * Método donde declararemos la funcionabilidad del botón "Añadir grupo"
    */
   private handleAddGroupClic = () => {
-    console.log("Botón de añadir grupo pulsado");
     this.setState({ showAddGroupForm: true }); // Cambiado a showAddGroupForm
   }
 
