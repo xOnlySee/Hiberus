@@ -21,9 +21,9 @@ export interface IResponseItem {
 }
 
 export interface ICodigoSector {
-    CodigoSector: string;
+    CodigoSelector: string;
 }
 
 export interface ICodigoSectorResponse {
-    CodigoSector: string;
+    CodigoSelector: string;
 }

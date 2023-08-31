@@ -22,6 +22,9 @@ interface IAddGroupState {
     //String donde almacenará el ID del grupo
     groupID: string;
 
+    //String donde almacenará el codigo del grupo
+    groupCode: string;
+
     //String donde almacenerá la denominación del grupo
     denomination: string;
 
@@ -58,6 +61,12 @@ interface IAddGroupState {
 
     //Boolean donde dependiendo de si su valor es "True" o "False" se volverá a mostrar la interfaz principal del WebPart
     showGroups: boolean;
+
+    //String donde alamcenenará el mensaje del formulario
+    bannerMessage: string;
+
+    //String donde almacenará el tipo de mensaje del formulario
+    bannerMessageType: 'error' | 'warning' | 'success' | 'info';
 }
 
 /**
@@ -78,6 +87,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
         this.state = {
             isSwitchOn: true,
             groupID: "",
+            groupCode: "",
             denomination: "",
             description: "",
             endDate: null,
@@ -88,14 +98,25 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             cityTermnSelected: [],
             items: [],
             errors: [],
-
             sectorCodeCategory: "",
-
             creationDate: new Date(),
-
-            showGroups: false
+            showGroups: false,
+            bannerMessage: "",
+            bannerMessageType: 'success'
         };
         this._sp = getSP();
+    }
+
+    /**
+     * Método donde gestionaremos el Banner y los mensajes del formulario
+     * @param message Variable de tipo String que reprsenta el mensaje
+     * @param messageType Variable de tipo String que representa el tipo de mensaje
+     */
+    private showBannerMessage(message: string, messageType: 'error' | 'warning' | 'success' | 'info'): void {
+        this.setState({
+            bannerMessage: message,
+            bannerMessageType: messageType,
+        });
     }
 
     /**
@@ -103,6 +124,91 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
      */
     public componentDidMount(): void {
         this._readAllFilesSize().catch;
+    }
+
+    /**
+     * Método donde comprobaremos si los campos del formulario estan completados
+     * @returns Devuelve un Boolean donde dependiendo de si es "True" o "False" hará una cosa u otra
+     */
+    private validateFormFields(): boolean {
+        const errors: string[] = [];
+
+        if (this.state.groupID.trim() === '') {
+            errors.push('ID del grupo es requerido');
+        }
+
+        /* AÑADIR FUTUTAS VALIDACIONES */
+
+        //En caso de que el tamaño del array donde contiene los errores es mayor que cero (hay errores)
+        if (errors.length > 0) {
+            //Mostraremos un error en el Banner
+            this.showBannerMessage('Por favor, complete todos los campos requeridos', 'error');
+
+        //En caso contrario, limpia el Array que contiene los errores
+        } else {
+            this.setState({ errors: [] });
+        }
+
+        return errors.length === 0;
+    }
+
+    /**
+     * Método donde delcararemos la funcionabilidad del botón "Guardar"
+     */
+    private handleSave = async () => {
+        //En caso de que el método "validateFormFields" devuelva "True"
+        if (this.validateFormFields()) {
+            try {
+                //Mostramos por consola las opciones que el usuario ha rellenado en el formulario
+                console.log("Estado: " + this.state.isSwitchOn +
+                    "\nID grupo: " + this.state.groupID +
+                    "\nCódigo del grupo: " + this.state.groupCode +
+                    "\nDenominacion: " + this.state.denomination +
+                    "\nDescripción: " + this.state.description +
+                    "\nCodigo sector: " + this.state.sectorCodeCategory +
+                    "\nFecha de creación: " + this.state.creationDate +
+                    "\nFecha finalización: " + this.state.endDate +
+                    "\nTipo grupo: " + this.state.groupTypeSelected +
+                    "\nTemática: " + this.state.themeTypeSelected +
+                    "\nAmbito: " + this.state.ambitTermnSelected[0].name +
+                    "\nPaís: " + this.state.countryTermnSelected[0].name +
+                    "\nCiudad: " + this.state.cityTermnSelected[0].name);
+
+                //Almacenamos en la constante "newItems" todos los datos que queremos almacenar en la lista
+                const newItems = {
+                    Title: this.state.groupID,
+                    CodigoGrupo: this.state.groupCode,
+                    SectorAsociado: this.state.sectorCodeCategory,
+                    Denominacion: this.state.denomination,
+                    FechaCreacion: this.state.creationDate,
+                    FechaFinalizacion: this.state.endDate,
+                    Estado: this.state.isSwitchOn,
+                    TipoGrupo: this.state.groupTypeSelected,
+                    Ambito: this.state.ambitTermnSelected,
+                    Pais: this.state.countryTermnSelected,
+                    Ciudad: this.state.cityTermnSelected
+                }
+
+                //Usamos el objeto "_sp" donde indicamos el nombre de la lista y los items que queremos añadir
+                await this._sp.web.lists.getByTitle("Grupos").items.add(newItems)
+                    //En caso de que los items se hayan podido añadir a la lista
+                    .then((response) => {
+                        //Mostramos por consola un mensaje junto a la respuesta
+                        console.log("Elemento agregado correctamente:", response);
+                    })
+                    //En caso de que haya ocurrido un error
+                    .catch((error) => {
+                        //Mostramos por consola el mensaje de error segiuido del código de error
+                        console.error("Error al agregar el elemento:", error);
+                    });
+
+                this.showBannerMessage('Los cambios se han guardado exitosamente', 'success');
+
+            //Mostramos el mensaje de error en el Banner
+            } catch (error) {
+                this.showBannerMessage('Ha ocurrido un error al guardar los cambios', 'error');
+            }
+        }
     }
 
     /**
@@ -144,6 +250,21 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
     }
 
     /**
+     * Método donde gestionaremos el campo de texto de codigo del grupo
+     * @param event Variable de tipo event
+     * @param newValue Variable de tipo String
+     */
+    private handleGroupCode = (event: React.FormEvent<HTMLInputElement>, newValue?: string) => {
+        //En caso de que se añada contenido en la barra de texto, se añadirá el contenido a la variable "groupCode"
+        if (newValue !== undefined) {
+            this.setState({
+                groupCode: newValue
+            });
+        }
+    }
+
+
+    /**
      * Método donde gestionaremos el campo de texto de denominación del grupo
      * @param event Variable de tipo event
      * @param newValue Variable de tipo String
@@ -168,6 +289,18 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             this.setState({
                 description: newValue
             });
+        }
+    }
+
+    /**
+     * Método donde gestionaremos el DropDown del código de sector
+     * @param event Variable de tipo event
+     * @param option Variable de tipo IDropdownOption
+     */
+    private handleSectorCodeChange = (event: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
+        //En caso de que se elija una opción, se almacenará la opción en "sectorCodeCategory"
+        if (option) {
+            this.setState({ sectorCodeCategory: option.key?.toString() || '' });
         }
     }
 
@@ -214,7 +347,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
      */
     private handleTaxonomyPickerChange_ambit = (terms: IPickerTerms) => {
         this.setState({
-
+            ambitTermnSelected: terms
         });
     }
 
@@ -224,7 +357,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
      */
     private handleTaxonomyPickerChange_country = (terms: IPickerTerms) => {
         this.setState({
-
+            countryTermnSelected: terms
         });
     }
 
@@ -234,7 +367,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
      */
     private handleTaxonomyPickerChange_city = (terms: IPickerTerms) => {
         this.setState({
-
+            cityTermnSelected: terms
         });
     }
 
@@ -283,10 +416,11 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                 .items
                 .select("CodigoSelector")();
 
+            console.log("Response" + JSON.stringify(response, null, 2));
+
             const items: ICodigoSector[] = response.map((item: ICodigoSectorResponse) => {
-                console.log("Codigo: " + item.CodigoSector);
                 return {
-                    CodigoSector: item.CodigoSector
+                    CodigoSelector: item.CodigoSelector
                 };
             });
 
@@ -311,7 +445,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             { key: 'Tematica3', text: 'Tematica3' }
         ];
 
-        const sectorsCode = Array.from(new Set(this.state.items.map(item => item.CodigoSector)))
+        const sectorsCode = Array.from(new Set(this.state.items.map(item => item.CodigoSelector)))
 
         const sectorsCodeOptions = sectorsCode.map(sectorCode => ({
             key: sectorCode,
@@ -329,10 +463,29 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
         //Devolvemos la interfaz del formulario para añadir grupos
         return (
             <section>
+                <div
+                    style={{
+                        backgroundColor:
+                            this.state.bannerMessageType === "error"
+                                ? "red"
+                                : this.state.bannerMessageType === "warning"
+                                    ? "yellow"
+                                    : this.state.bannerMessageType === "success"
+                                        ? "green"
+                                        : this.state.bannerMessageType === "info"
+                                            ? "gray"
+                                            : "initial", // Color por defecto o cualquier otro estilo que desees
+                        color: "white", // Color de texto para todos los tipos de mensaje
+                    }}
+                    className="banner"
+                >
+                    {this.state.bannerMessage}
+                </div>
+
                 <div>
                     {/* Añadimos los botones con sus respectivos métodos para darles funcionabilidad */}
                     <div>
-                        <PrimaryButton>Guardar</PrimaryButton>
+                        <PrimaryButton onClick={this.handleSave}>Guardar</PrimaryButton>
                         <PrimaryButton onClick={this.handleCancel} >Cancelar</PrimaryButton>
                         <PrimaryButton onClick={this.handleReturnToGroups}>Volver a grupos</PrimaryButton>
                     </div>
@@ -351,6 +504,15 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                             label='ID del grupo'
                             value={this.state.groupID}
                             onChange={this.handleIdGrupoChange}
+                            required={true} />
+                    </div>
+
+                    {/* Añadimos el campo de texto para configurar el código del grupo */}
+                    <div>
+                        <TextField
+                            label='Código del grupo'
+                            value={this.state.groupCode}
+                            onChange={this.handleGroupCode}
                             required={true} />
                     </div>
 
@@ -378,7 +540,9 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                         <Dropdown
                             label='Codigo de sector'
                             selectedKey={this.state.sectorCodeCategory}
-                            options={sectorsCodeOptions} />
+                            options={sectorsCodeOptions}
+                            required={true}
+                            onChange={this.handleSectorCodeChange} />
                     </div>
 
                     {/* Añadimos el DatePicker para que el usuario seleccione la fecha de finalización del grupo */}
@@ -434,7 +598,8 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                             isTermSetSelectable={false}
                             includeDefaultTermActions={false}
                             panelTitle='País'
-                            context={this.props.context} />
+                            context={this.props.context}
+                            required={true} />
                     </div>
 
                     {/* Añadimos el TaxonomyPickler donde el usuario pueda seleccionar una ciudad */}
