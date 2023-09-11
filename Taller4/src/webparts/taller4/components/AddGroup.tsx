@@ -144,7 +144,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             //Mostraremos un error en el Banner
             this.showBannerMessage('Por favor, complete todos los campos requeridos', 'error');
 
-        //En caso contrario, limpia el Array que contiene los errores
+            //En caso contrario, limpia el Array que contiene los errores
         } else {
             this.setState({ errors: [] });
         }
@@ -174,20 +174,44 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                     "\nPaís: " + this.state.countryTermnSelected[0].name +
                     "\nCiudad: " + this.state.cityTermnSelected[0].name);
 
+                //Constante utilizada para almacenar la taxonomia seleccionada del ámbito
+                const ambitTermnSelected = {
+                    Label: this.state.ambitTermnSelected[0].name,
+                    TermGuid: this.state.ambitTermnSelected[0].key,
+                    WssId: -1
+                }
+
+                //Contante utilizada para almacenar la taxonomia seleccionada del país
+                const countryTermnSelected = {
+                    Label: this.state.countryTermnSelected[0].name,
+                    TermGuid: this.state.countryTermnSelected[0].key,
+                    WssId: -1,
+                }
+
+                //Contante utilizada para almacenar la taxonomia seleccionada de la ciudad
+                const cityTermnSelected = {
+                    Label: this.state.cityTermnSelected[0].name,
+                    TermGuid: this.state.cityTermnSelected[0].key,
+                    WssId: -1,
+                }
+
                 //Almacenamos en la constante "newItems" todos los datos que queremos almacenar en la lista
                 const newItems = {
                     Title: this.state.groupID,
                     CodigoGrupo: this.state.groupCode,
-                    SectorAsociado: this.state.sectorCodeCategory,
+                    //FALTA AÑADIR EL CÓDIGO DEL SECTOR
                     Denominacion: this.state.denomination,
                     FechaCreacion: this.state.creationDate,
                     FechaFinalizacion: this.state.endDate,
                     Estado: this.state.isSwitchOn,
                     TipoGrupo: this.state.groupTypeSelected,
-                    Ambito: this.state.ambitTermnSelected,
-                    Pais: this.state.countryTermnSelected,
-                    Ciudad: this.state.cityTermnSelected
+                    Tematica: this.state.themeTypeSelected,
+                    Ambito: ambitTermnSelected,
+                    Pais: countryTermnSelected,
+                    Ciudad: cityTermnSelected
                 }
+
+                console.log("New Items:", JSON.stringify(newItems, null, 2));
 
                 //Usamos el objeto "_sp" donde indicamos el nombre de la lista y los items que queremos añadir
                 await this._sp.web.lists.getByTitle("Grupos").items.add(newItems)
@@ -195,18 +219,22 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                     .then((response) => {
                         //Mostramos por consola un mensaje junto a la respuesta
                         console.log("Elemento agregado correctamente:", response);
+
+                        this.showBannerMessage("Los cambios se han guardado de forma exitosa", "success")
                     })
                     //En caso de que haya ocurrido un error
                     .catch((error) => {
                         //Mostramos por consola el mensaje de error segiuido del código de error
                         console.error("Error al agregar el elemento:", error);
+
+                        if (error.response) {
+                            console.error("Detalles de la respuesta: " + error.response.data);
+                        }
                     });
 
-                this.showBannerMessage('Los cambios se han guardado exitosamente', 'success');
-
-            //Mostramos el mensaje de error en el Banner
+                //Mostramos el mensaje de error en el Banner
             } catch (error) {
-                this.showBannerMessage('Ha ocurrido un error al guardar los cambios', 'error');
+                this.showBannerMessage("Ha ocurrido un error al guardar los cambios", "error");
             }
         }
     }
@@ -262,7 +290,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             });
         }
     }
-
 
     /**
      * Método donde gestionaremos el campo de texto de denominación del grupo
@@ -376,7 +403,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
      * @param files Variable de tipo File
      */
     private handleFileUpload = (files: File[]) => {
-        console.log("Archhivo subido: " + files)
+        console.log("Archivo subido: " + files)
     }
 
     /**
@@ -415,8 +442,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                 .getByTitle(this.LIBRARY_NAME)
                 .items
                 .select("CodigoSelector")();
-
-            console.log("Response" + JSON.stringify(response, null, 2));
 
             const items: ICodigoSector[] = response.map((item: ICodigoSectorResponse) => {
                 return {
@@ -474,7 +499,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                                         ? "green"
                                         : this.state.bannerMessageType === "info"
                                             ? "gray"
-                                            : "initial", // Color por defecto o cualquier otro estilo que desees
+                                            : "initial", //Color por defecto o cualquier otro estilo que desees
                         color: "white", // Color de texto para todos los tipos de mensaje
                     }}
                     className="banner"
