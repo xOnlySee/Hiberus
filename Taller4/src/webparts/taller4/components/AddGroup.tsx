@@ -104,6 +104,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             bannerMessage: "",
             bannerMessageType: 'success'
         };
+        
         this._sp = getSP();
     }
 

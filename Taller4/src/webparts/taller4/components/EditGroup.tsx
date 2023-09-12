@@ -4,6 +4,8 @@ import * as React from 'react';
 import { DatePicker, PrimaryButton, TextField } from 'office-ui-fabric-react';
 import { IFile } from '../interface';
 import Taller4 from './Taller4';
+import { getSP } from '../pnpjsConfig';
+import { SPFI } from '@pnp/sp';
 
 interface IEditGroupProps {
     context: any | null;
@@ -30,6 +32,8 @@ interface IEditGroupState {
 }
 
 export default class AddGroup extends React.Component<IEditGroupProps, IEditGroupState> {
+    private _sp: SPFI;
+
     constructor(props: IEditGroupProps) {
         super(props);
 
@@ -41,6 +45,8 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
             endDate: new Date(this.props.selectedItem.FechaFinalizacion),
             showGroups: false
         };
+
+        this._sp = getSP();
     }
 
     /**
@@ -107,6 +113,47 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
         });
     }
 
+    /**
+     * Método donde gestionará el botón de guardar
+     */
+    private handleSave = async () => {
+        //Contante donde almacenaremos el código de grupo casteado a número entero
+        const groupCode = parseInt(this.props.selectedItem.CodigoGrupo, 10);
+
+        try {
+            //Almacenamos en la constante "items" el resultado de la búsqueda del ID código del grupo
+            const items = await this._sp.web.lists.getByTitle("Grupos")
+                .items.filter(`CodigoGrupo eq ${groupCode}`)
+                .select("Id")();
+
+            //En caso de que obtenga los valores
+            if (items && items.length === 1) {
+                //Almacenamos en la constante "itemId" el resultado obtenido
+                const itemId = items[0].Id;
+
+                //Almacenamos en la constante "data" los datos que queremos actualizar con los datos del formulario
+                const data = {
+                    Denominacion: this.state.denomination,
+                    Descripcion: this.state.description,
+                    FechaCreacion: this.state.creationDate,
+                    FechaFinalizacion: this.state.endDate
+                };
+
+                //Realizamos la operación de actualización de los nuevos elementos
+                await this._sp.web.lists.getByTitle("Grupos").items.getById(itemId).update(data);
+
+                console.info("Éxito en la actualización");
+
+                //En caso de que no encuentre ningun elemento con el mismo código de grupo
+            } else {
+                console.error("Elemento no encontrado o múltiples elementos encontrados.");
+            }
+        } catch (error) {
+            console.error("Error al actualizar el elemento: " + error);
+        }
+    }
+
+
     render() {
 
         //En caso de que la variable "showGruops" sea "True"
@@ -122,7 +169,7 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
             <section>
                 {/* Añadimos los botones con sus respectivos métodos para darles funcionabilidad */}
                 <div>
-                    <PrimaryButton>Guardar</PrimaryButton>
+                    <PrimaryButton onClick={this.handleSave} >Guardar</PrimaryButton>
                     <PrimaryButton onClick={this.handleReturnToGroups}>Salir</PrimaryButton>
                 </div>
 
@@ -152,7 +199,7 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
                         onSelectDate={this.handleCreationDate} />
                 </div>
 
-                 {/* Añadimos el DatePicker para que el usuario pueda configurar la fecha de finalización del grupo */}
+                {/* Añadimos el DatePicker para que el usuario pueda configurar la fecha de finalización del grupo */}
                 <div>
                     <DatePicker
                         label='Fecha de finalización'
