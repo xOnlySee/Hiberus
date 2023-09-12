@@ -2,6 +2,7 @@ export interface IFile {
     Title: string;
     CodigoGrupo: string;
     Denominacion: string;
+    Descripcion: string;
     FechaCreacion: string;
     FechaFinalizacion: string;
     Estado: string;
@@ -13,6 +14,7 @@ export interface IResponseItem {
     Title: string;
     CodigoGrupo: string;
     Denominacion: string;
+    Descripcion: string;
     FechaCreacion: string;
     FechaFinalizacion: string;
     Estado: string;

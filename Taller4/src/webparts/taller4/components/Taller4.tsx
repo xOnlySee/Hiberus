@@ -7,13 +7,16 @@ import { IFile, IResponseItem } from '../interface';
 import { SPFI, spfi } from '@pnp/sp';
 import { getSP } from '../pnpjsConfig';
 import { LogLevel, Logger } from '@pnp/logging';
-import { DetailsList, PrimaryButton } from 'office-ui-fabric-react';
+import { DetailsList, PrimaryButton, SelectionMode } from 'office-ui-fabric-react';
 import AddGroup from './AddGroup';
+import EditGroup from './EditGroup';
 
 export interface ITaller4State {
   items: IFile[];
   errors: string[];
   showAddGroupForm: boolean;
+  selectedFile: IFile | null;
+  showEditGroup: boolean;
 }
 
 /**
@@ -30,8 +33,11 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
     this.state = {
       items: [],
       errors: [],
-      showAddGroupForm: false
+      showAddGroupForm: false,
+      selectedFile: null,
+      showEditGroup: false
     };
+
     this._sp = getSP();
   }
 
@@ -52,13 +58,16 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
       const response: IResponseItem[] = await spCache.web.lists
         .getByTitle(this.LIBRARY_NAME)
         .items
-        .select("Title", "CodigoGrupo", "Denominacion", "FechaCreacion", "FechaFinalizacion", "Estado", "TipoGrupo", "Tematica")();
+        .select("Title", "CodigoGrupo", "Denominacion", "Descripcion", "FechaCreacion", "FechaFinalizacion", "Estado", "TipoGrupo", "Tematica")();
+
+      //console.log("Respuesta: ", JSON.stringify(response, null, 2));
 
       const items: IFile[] = response.map((item: IResponseItem) => {
         return {
           Title: item.Title,
           CodigoGrupo: item.CodigoGrupo,
           Denominacion: item.Denominacion,
+          Descripcion: item.Descripcion,
           FechaCreacion: item.FechaCreacion,
           FechaFinalizacion: item.FechaFinalizacion,
           Estado: item.Estado,
@@ -77,9 +86,28 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
    * Método donde declararemos la funcionabilidad del botón "Añadir grupo"
    */
   private handleAddGroupClic = () => {
-    this.setState({ showAddGroupForm: true }); // Cambiado a showAddGroupForm
+    this.setState({ showAddGroupForm: true });
   }
 
+  /**
+   * Método donde declararemos la funcionabilidad del los items al ser pulsados
+   */
+  private showEditGroup = (): void => {
+    this.setState({ showEditGroup: true });
+
+    console.log("selectedItem en Taller4:", this.state.selectedFile);
+  }
+
+  /**
+   * Método donde añadiremos la funcionabilidad cuando el usuario haga doble clic sobre el item que quiera editar
+   * @param item Variable de tipo IFile que representa el items seleccionado de la lista de grupos
+   */
+  private handleItemInvoked = (item: IFile): void => {
+    this.setState({ selectedFile: item }, () => {
+      this.showEditGroup();
+    });
+  }
+  
 
   /**
    * Método utilizado para definir y devolver la estructura y el contenido de la GUI del componente a renderizar
@@ -98,19 +126,28 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
       { key: 'Tematica', name: 'Temática', fieldName: 'Tematica', minWidth: 100, maxWidth: 200, isResizable: true }
     ];
 
-    let listView = <DetailsList items={this.state.items} columns={columns} />;
-
     return (
       <div>
-        {!this.state.showAddGroupForm && (
+        {!this.state.showAddGroupForm && !this.state.showEditGroup && (
           <PrimaryButton onClick={this.handleAddGroupClic}>Añadir grupo</PrimaryButton>
         )}
         {this.state.showAddGroupForm ? (
           <AddGroup context={this.props.context} />
+        ) : this.state.showEditGroup ? (
+          <EditGroup
+            context={this.props.context}
+            selectedItem={this.state.selectedFile} />
         ) : (
-          listView
+          <div>
+            <DetailsList
+              items={this.state.items}
+              columns={columns}
+              selectionMode={SelectionMode.none}
+              onItemInvoked={this.handleItemInvoked} />
+          </div>
         )}
       </div>
     );
+
   }
 }

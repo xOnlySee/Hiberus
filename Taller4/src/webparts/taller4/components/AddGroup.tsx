@@ -199,8 +199,9 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                 const newItems = {
                     Title: this.state.groupID,
                     CodigoGrupo: this.state.groupCode,
-                    //FALTA AÑADIR EL CÓDIGO DEL SECTOR
+                    CodigoSector_2: this.state.sectorCodeCategory,
                     Denominacion: this.state.denomination,
+                    Descripcion: this.state.description,
                     FechaCreacion: this.state.creationDate,
                     FechaFinalizacion: this.state.endDate,
                     Estado: this.state.isSwitchOn,
@@ -414,6 +415,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
         this.setState({
             isSwitchOn: true,
             groupID: "",
+            groupCode: "",
             denomination: "",
             description: "",
             endDate: null,
@@ -424,10 +426,11 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             cityTermnSelected: [],
             items: [],
             errors: [],
-
             sectorCodeCategory: "",
-
-            creationDate: new Date()
+            creationDate: new Date(),
+            showGroups: false,
+            bannerMessage: "",
+            bannerMessageType: 'success'
         });
     };
 

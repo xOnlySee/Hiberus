@@ -3,12 +3,13 @@ import { IPruebaAnyadirItemsProps } from './IPruebaAnyadirItemsProps';
 import { PrimaryButton, TextField } from 'office-ui-fabric-react';
 import { SPFI } from '@pnp/sp';
 import { getSP } from '../pnpjsConfig';
-import { IPickerTerms, TaxonomyPicker } from '@pnp/spfx-controls-react';
+import { IPickerTerms, TaxonomyPicker, UploadFiles } from '@pnp/spfx-controls-react';
+import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 
 interface IPruebaAnyadirItemsState {
   Title: string;
   cityTermnSelected: IPickerTerms;
-  SectorCode: string;
+  uploadedFiles: any[]; // Agrega esta propiedad para rastrear los archivos seleccionados
 }
 
 export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirItemsProps, IPruebaAnyadirItemsState> {
@@ -20,7 +21,7 @@ export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirIt
     this.state = {
       Title: "",
       cityTermnSelected: [],
-      SectorCode: ""
+      uploadedFiles: []
     }
 
     this._sp = getSP();
@@ -40,75 +41,104 @@ export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirIt
     });
   }
 
-  private handleSectorCodeChange = (event: React.FormEvent<HTMLInputElement>, newValue?: string) => {
-    //En caso de que se añada contenido en la barra de texto, se añadirá el contenido a la variable "groupID"
-    if (newValue !== undefined) {
-      this.setState({
-        SectorCode: newValue
-      });
-    }
-  }
-
-  private async addItemToList() {
-    try {
-      const { Title, SectorCode } = this.state;
-  
-      // Agrega el elemento a la lista de origen (Prueba)
-      const newItem = await this._sp.web.lists.getByTitle("Prueba").items.add({
-        Title: Title,
-      });
-  
-      // Obtiene el ID del elemento recién creado
-      const newItemId = newItem.data.Id;
-  
-      // Crea el objeto Lookup para el campo "CodigoSector"
-      const sectorLookupField = {
-        LookupId: newItemId,
-      };
-  
-      // Actualiza el elemento en la lista de destino (TuListaDestino) con el campo Lookup
-      await sp.web.lists.getByTitle("TuListaDestino").items.add({
-        Title: Title, // Puedes agregar otros campos según sea necesario
-        CodigoSector: sectorLookupField,
-      });
-  
-      console.log("Elemento agregado correctamente a la lista con Lookup.");
-    } catch (error) {
-      console.error("Error al agregar el elemento:", error);
-      // Manejo de errores
-    }
-  }
-  
-
-
-  private handleSave = async () => {
+  private async handleSave() {
     try {
       const taxonomyField = {
         Label: this.state.cityTermnSelected[0].name,
         TermGuid: this.state.cityTermnSelected[0].key,
         WssId: -1,
       };
-
+  
+      // Obtener el token de solicitud antes de la llamada a la función handleSave
+      const digestResponse: SPHttpClientResponse = await this.props.context.spHttpClient.fetch(`${this.props.context.pageContext.web.absoluteUrl}/_api/contextinfo`, SPHttpClient.configurations.v1);
+      const digestData = await digestResponse.json();
+      const requestDigest = digestData.d.GetContextWebInformation.FormDigestValue;
+  
+      // Crear el elemento en la lista
       const response = await this._sp.web.lists.getByTitle("Prueba").items.add({
         Title: this.state.Title,
-        Ciudad: taxonomyField, // Usar un objeto en lugar de un array
+        Ciudad: taxonomyField,
       });
-
-      console.log("Elemento agregado correctamente:", response);
-
-      // Resto de la lógica después de agregar el elemento
+  
+      console.log('Elemento agregado correctamente:', response);
+  
+      if (response && response.data && response.data.Id) {
+        // Obtener el ID del elemento agregado
+        const itemId = response.data.Id;
+  
+        // Ahora puedes usar itemId en la construcción de la URL de carga
+        const uploadUrl = `${this.props.context.pageContext.web.absoluteUrl}/_api/web/lists/getByTitle('Prueba')/items(${itemId})/AttachmentFiles/add(FileName='nombre_del_archivo')`;
+  
+        // Antes de hacer la solicitud POST, agrega mensajes de depuración
+        console.log('Token de solicitud:', requestDigest);
+        console.log('URL de carga:', uploadUrl);
+  
+        // Resto del código para cargar archivos adjuntos
+        // ...
+      } else {
+        console.error('No se pudo obtener el ID del elemento agregado.');
+      }
+  
+      return response; // Devolver la respuesta de la adición del elemento
     } catch (error) {
-      console.error("Error al agregar el elemento:", error);
-      // Manejo de errores
+      console.error('Error al agregar el elemento:', error);
+      throw error; // Propagar el error
     }
   }
-
+  
+  private async _onUploadFiles(fileInfos: any[], itemId: number) {
+    if (fileInfos && fileInfos.length > 0) {
+      const uploadedFiles = [...this.state.uploadedFiles, ...fileInfos];
+      this.setState({ uploadedFiles });
+  
+      for (const fileInfo of fileInfos) {
+        if (fileInfo && fileInfo.name) {
+          try {
+            // Obtener el token de solicitud
+            const digestResponse: SPHttpClientResponse = await this.props.context.spHttpClient.fetch(`${this.props.context.pageContext.web.absoluteUrl}/_api/contextinfo`, SPHttpClient.configurations.v1);
+            const digestData = await digestResponse.json();
+            const requestDigest = digestData.d.GetContextWebInformation.FormDigestValue;
+  
+            // Construir la URL de carga
+            const uploadUrl = `${this.props.context.pageContext.web.absoluteUrl}/_api/web/lists/getByTitle('Prueba')/items(${itemId})/AttachmentFiles/add(FileName='${fileInfo.name}')`;
+  
+            // Incluir el token de solicitud en el encabezado
+            const uploadResponse: SPHttpClientResponse = await this.props.context.spHttpClient.post(uploadUrl, SPHttpClient.configurations.v1, {
+              headers: {
+                'Accept': 'application/json;odata=verbose',
+                'X-RequestDigest': requestDigest,
+              },
+              body: fileInfo.content,
+            });
+  
+            if (uploadResponse.ok) {
+              console.log(`Archivo '${fileInfo.name}' subido con éxito.`);
+            } else {
+              console.error(`Error al subir el archivo '${fileInfo.name}':`, uploadResponse.statusText);
+            }
+          } catch (error) {
+            console.error(`Error al subir el archivo '${fileInfo.name}':`, error);
+          }
+        } else {
+          console.error('El objeto fileInfo es inválido o no tiene la propiedad "name".');
+        }
+      }
+    }
+  }
+  
 
   public render(): React.ReactElement<IPruebaAnyadirItemsProps> {
     return (
       <section>
         <div>
-          <PrimaryButton onClick={this.handleSave}>Guardar</PrimaryButton>
+          <PrimaryButton onClick={async () => {
+            const response = await this.handleSave();
+            if (response && response.data && response.data.Id) {
+              await this._onUploadFiles(this.state.uploadedFiles, response.data.Id);
+            } else {
+              console.error('No se pudo obtener el ID del elemento agregado.');
+            }
+          }}>Guardar</PrimaryButton>
         </div>
 
         <div>
@@ -132,10 +162,17 @@ export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirIt
         </div>
 
         <div>
-          <TextField
-            label='Código de Sector'
-            value={this.state.SectorCode} // Agregar el valor del estado correspondiente
-            onChange={this.handleSectorCodeChange} // Agregar el manejador correspondiente
+          <UploadFiles
+            context={this.props.context}
+            title='Documentos adjuntos'
+            onUploadFiles={async (fileInfos) => {
+              const response = await this.handleSave();
+              if (response && response.data && response.data.Id) {
+                this._onUploadFiles(fileInfos, response.data.Id).catch;
+              } else {
+                console.error('No se pudo obtener el ID del elemento agregado.');
+              }
+            }}
           />
         </div>
       </section>
