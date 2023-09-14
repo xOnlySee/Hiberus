@@ -2,14 +2,11 @@ import * as React from 'react';
 import { ITaller4Props } from './ITaller4Props';
 
 //Nuevas importaciones
-import { Caching } from "@pnp/queryable";
-import { IFile, IResponseItem } from '../interface';
-import { SPFI, spfi } from '@pnp/sp';
-import { getSP } from '../pnpjsConfig';
-import { LogLevel, Logger } from '@pnp/logging';
+import { IFile, /*IResponseItem*/ } from '../interface';
 import { DetailsList, PrimaryButton, SelectionMode } from 'office-ui-fabric-react';
 import AddGroup from './AddGroup';
 import EditGroup from './EditGroup';
+import Read from '../crud/read';
 
 export interface ITaller4State {
   items: IFile[];
@@ -23,9 +20,7 @@ export interface ITaller4State {
  * Clase donde mostraremos la lista de los grupos en el menu principal del WebPart
  */
 export default class Taller4 extends React.Component<ITaller4Props, ITaller4State> {
-  private LOG_SOURCE = "Taller4"
-  private LIBRARY_NAME = "Grupos"
-  private _sp: SPFI;
+  private originalUrl: string = window.location.href.split("?")[0];
 
   constructor(props: ITaller4Props) {
     super(props);
@@ -37,49 +32,31 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
       selectedFile: null,
       showEditGroup: false
     };
-
-    this._sp = getSP();
   }
 
   /**
    * Método que se ejecutará cuando el WebPart se añada
    */
   public componentDidMount(): void {
-    this._readAllFilesSize().catch;
-  }
+    //Creamos e instanciamos una contante de Read() para acceder a sus métodos
+    const readInstance = new Read();
 
-  /**
-   * Método donde obtendremos los elementos de la lista "Grupos"
-   */
-  private _readAllFilesSize = async (): Promise<void> => {
-    try {
-      const spCache = spfi(this._sp).using(Caching({ store: "session" }));
+    //Invocamos al método para que realice la consulta para obtener los grupos
+    readInstance.readAllGroups()
+      //En caso de que se haya ejecutado correctamente
+      .then((items) => {
+        //Mostramos por consola los items obtenidos
+        console.log("Items de la lista:", items);
 
-      const response: IResponseItem[] = await spCache.web.lists
-        .getByTitle(this.LIBRARY_NAME)
-        .items
-        .select("Title", "CodigoGrupo", "Denominacion", "Descripcion", "FechaCreacion", "FechaFinalizacion", "Estado", "TipoGrupo", "Tematica")();
+        //Actualizaos el estado con los items obtenidos
+        this.setState({ items });
+      })
 
-      //console.log("Respuesta: ", JSON.stringify(response, null, 2));
-
-      const items: IFile[] = response.map((item: IResponseItem) => {
-        return {
-          Title: item.Title,
-          CodigoGrupo: item.CodigoGrupo,
-          Denominacion: item.Denominacion,
-          Descripcion: item.Descripcion,
-          FechaCreacion: item.FechaCreacion,
-          FechaFinalizacion: item.FechaFinalizacion,
-          Estado: item.Estado,
-          TipoGrupo: item.TipoGrupo,
-          Tematica: item.Tematica
-        };
+      //En caso de que ocurra un error
+      .catch((error) => {
+        //Mostramos un mensaje de error por consola
+        console.error("Error al ejecutar readAllGroups:", error);
       });
-
-      this.setState({ items });
-    } catch (err) {
-      Logger.write(`${this.LOG_SOURCE} (_readAllFilesSize) - ${JSON.stringify(err)} - `, LogLevel.Error);
-    }
   }
 
   /**
@@ -107,16 +84,18 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
       this.showEditGroup();
     });
   }
-  
+
 
   /**
    * Método utilizado para definir y devolver la estructura y el contenido de la GUI del componente a renderizar
    * @returns Devuelve el diseño de la interfaz del WebPart
    */
   public render(): React.ReactElement<ITaller4Props> {
+    //Actualizamos la URL quitando el identificador del grupo
+    window.history.replaceState({ path: this.originalUrl }, '', this.originalUrl);
+
     //Constante utilizado para definicir las columnas y sus ajustes
     const columns = [
-      { key: 'IDGrupo', name: 'ID del grupo', fieldName: 'Title', minWidth: 100, maxWidth: 200, isResizable: true },
       { key: 'CodigoGrupo', name: 'Código del grupo', fieldName: 'CodigoGrupo', minWidth: 100, maxWidth: 200, isResizable: true },
       { key: 'Denominacion', name: 'Denominación', fieldName: 'Denominacion', minWidth: 100, maxWidth: 200, isResizable: true },
       { key: 'FechaCreacion', name: 'Fecha de creación', fieldName: 'FechaCreacion', minWidth: 100, maxWidth: 200, isResizable: true },

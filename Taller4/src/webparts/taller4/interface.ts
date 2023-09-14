@@ -1,5 +1,4 @@
 export interface IFile {
-    Title: string;
     CodigoGrupo: string;
     Denominacion: string;
     Descripcion: string;
@@ -11,7 +10,6 @@ export interface IFile {
 }
 
 export interface IResponseItem {
-    Title: string;
     CodigoGrupo: string;
     Denominacion: string;
     Descripcion: string;

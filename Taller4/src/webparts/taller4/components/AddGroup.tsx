@@ -5,11 +5,11 @@ import { IPickerTerms, TaxonomyPicker } from '@pnp/spfx-controls-react';
 import { DatePicker, Dropdown, IDropdownOption, PrimaryButton, TextField, Toggle } from 'office-ui-fabric-react';
 import { UploadFiles } from '@pnp/spfx-controls-react/lib/UploadFiles';
 import Taller4 from './Taller4';
-import { ICodigoSector, ICodigoSectorResponse } from '../interface';
+import { ICodigoSector } from '../interface';
 import { getSP } from '../pnpjsConfig';
-import { SPFI, spfi } from '@pnp/sp';
-import { LogLevel, Logger } from '@pnp/logging';
-import { Caching } from "@pnp/queryable";
+import { SPFI } from '@pnp/sp';
+import { PermissionKind } from '@pnp/sp/security';
+import Read from '../crud/read';
 
 interface IAddGroupProps {
     context: any | null;
@@ -18,9 +18,6 @@ interface IAddGroupProps {
 interface IAddGroupState {
     //Boolean donde almacenará si estado es abierto o cerrado
     isSwitchOn: boolean;
-
-    //String donde almacenará el ID del grupo
-    groupID: string;
 
     //String donde almacenará el codigo del grupo
     groupCode: string;
@@ -67,18 +64,23 @@ interface IAddGroupState {
 
     //String donde almacenará el tipo de mensaje del formulario
     bannerMessageType: 'error' | 'warning' | 'success' | 'info';
+
+    //Boolean donde almacenará si tiene archivos adjuntados
+    attachedFiles: boolean;
+
+    //Boolean donde almacenará si el usuario tendrá permisos o no
+    hasPermissions: boolean | null;
 }
 
 /**
  * Clase donde gestionaremos el formulario para añadir grupos
  */
 export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupState> {
-    //Nombre del log
-    private LOG_SOURCE = "AddGroups"
-
-    //Nombre de la librería donde recuperaremos el ID del grupo
-    private LIBRARY_NAME = "Sectores";
+    //Objeto de tipo SPFI
     private _sp: SPFI;
+
+    //Array donde alacenará los ficheros adjuntados en el formulario
+    private attachedFilesArray: Array<File> = [];
 
     constructor(props: IAddGroupProps) {
         super(props);
@@ -86,7 +88,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
         //Inicializamos todos los elementos del estado del componente
         this.state = {
             isSwitchOn: true,
-            groupID: "",
             groupCode: "",
             denomination: "",
             description: "",
@@ -102,9 +103,11 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             creationDate: new Date(),
             showGroups: false,
             bannerMessage: "",
-            bannerMessageType: 'success'
+            bannerMessageType: 'success',
+            attachedFiles: false,
+            hasPermissions: null
         };
-        
+
         this._sp = getSP();
     }
 
@@ -123,8 +126,30 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
     /**
      * Método que se ejecutará cuando la interfaz del WebPart se añada
      */
-    public componentDidMount(): void {
-        this._readAllFilesSize().catch;
+    public async componentDidMount(): Promise<void> {
+        //this._readAllFilesSize().catch;
+
+        //Creamos e instanciamos una contante de Read() para acceder a sus métodos
+        const readInstance = new Read();
+
+        //Invocamos al método para que realice la consulta para obtener los grupos
+        readInstance.readSelectorCode()
+            //En caso de que se haya ejecutado correctamente
+            .then((items) => {
+                //Mostramos por consola los items obtenidos
+                console.log("Items de la lista:", items);
+
+                //Actualizaos el estado con los items obtenidos
+                this.setState({ items });
+            })
+
+            //En caso de que ocurra un error
+            .catch((error) => {
+                //Mostramos un mensaje de error por consola
+                console.error("Error al ejecutar readAllGroups:", error);
+            });
+
+        await this.checkUserPermissions();
     }
 
     /**
@@ -134,35 +159,44 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
     private validateFormFields(): boolean {
         const errors: string[] = [];
 
-        if (this.state.groupID.trim() === '') {
-            errors.push('ID del grupo es requerido');
-        }
-
-        /* AÑADIR FUTUTAS VALIDACIONES */
-
-        //En caso de que el tamaño del array donde contiene los errores es mayor que cero (hay errores)
-        if (errors.length > 0) {
-            //Mostraremos un error en el Banner
-            this.showBannerMessage('Por favor, complete todos los campos requeridos', 'error');
-
-            //En caso contrario, limpia el Array que contiene los errores
-        } else {
-            this.setState({ errors: [] });
+        if (this.state.groupCode.trim() === '') {
+            errors.push("ID del grupo es requerido");
+        } else if (this.state.denomination.trim() === '') {
+            errors.push("La denominacion es requerida");
+        } else if (this.state.description.trim() === '') {
+            errors.push("La descripcion es requerida");
+        } else if (this.state.sectorCodeCategory.trim() === '') {
+            errors.push("El codigo de sector es requerido");
+        } else if (this.state.groupTypeSelected.trim() === '') {
+            errors.push("El tipo de grupo es requerido");
         }
 
         return errors.length === 0;
     }
 
+
     /**
      * Método donde delcararemos la funcionabilidad del botón "Guardar"
      */
     private handleSave = async () => {
-        //En caso de que el método "validateFormFields" devuelva "True"
+        //En caso de que no se haya adjuntado ningun archivo
+        if (!this.state.attachedFiles) {
+            //Mostramos un error en el banner para informar al usuario
+            this.showBannerMessage("Debes de adjuntar un archivo", "error");
+            return;
+        }
+
+        this.attachedFilesArray.forEach((file, index) => {
+            console.log(`Archivo ${index + 1}:`);
+            console.log("Nombre del archivo:", file.name);
+            console.log("Tipo de archivo:", file.type);
+        });
+
+
         if (this.validateFormFields()) {
             try {
                 //Mostramos por consola las opciones que el usuario ha rellenado en el formulario
                 console.log("Estado: " + this.state.isSwitchOn +
-                    "\nID grupo: " + this.state.groupID +
                     "\nCódigo del grupo: " + this.state.groupCode +
                     "\nDenominacion: " + this.state.denomination +
                     "\nDescripción: " + this.state.description +
@@ -198,7 +232,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
 
                 //Almacenamos en la constante "newItems" todos los datos que queremos almacenar en la lista
                 const newItems = {
-                    Title: this.state.groupID,
                     CodigoGrupo: this.state.groupCode,
                     CodigoSector_2: this.state.sectorCodeCategory,
                     Denominacion: this.state.denomination,
@@ -213,26 +246,50 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                     Ciudad: cityTermnSelected
                 }
 
-                console.log("New Items:", JSON.stringify(newItems, null, 2));
+                //Almacenamos en la constante "groupCode" el ID del grupo castaeado a número entero
+                const groupCode = parseInt(this.state.groupCode, 10);
 
-                //Usamos el objeto "_sp" donde indicamos el nombre de la lista y los items que queremos añadir
-                await this._sp.web.lists.getByTitle("Grupos").items.add(newItems)
-                    //En caso de que los items se hayan podido añadir a la lista
-                    .then((response) => {
-                        //Mostramos por consola un mensaje junto a la respuesta
-                        console.log("Elemento agregado correctamente:", response);
+                try {
+                    //Almacenamos en la constante "items" el resultado de la búsqueda del ID código del grupo
+                    const items = await this._sp.web.lists.getByTitle("Grupos")
+                        .items.filter(`CodigoGrupo eq ${groupCode}`)
+                        .select("Id")();
 
-                        this.showBannerMessage("Los cambios se han guardado de forma exitosa", "success")
-                    })
-                    //En caso de que haya ocurrido un error
-                    .catch((error) => {
-                        //Mostramos por consola el mensaje de error segiuido del código de error
-                        console.error("Error al agregar el elemento:", error);
+                    //En caso de que obtenga los valores
+                    if (items && items.length == 1) {
+                        console.log("Ya existe una lista con el código de grupo: " + groupCode);
 
-                        if (error.response) {
-                            console.error("Detalles de la respuesta: " + error.response.data);
-                        }
-                    });
+                        //Mostramos en el banner que el grupo ya existe y no se ha podido añadir
+                        this.showBannerMessage("El grupo ya existe y no se puede añadir", "error");
+
+                        //En cualquier otro caso
+                    } else {
+                        console.log("La lista se puede añadir");
+
+                        //Usamos el objeto "_sp" donde indicamos el nombre de la lista y los items que queremos añadir
+                        await this._sp.web.lists.getByTitle("Grupos").items.add(newItems)
+                            //En caso de que los items se hayan podido añadir a la lista
+                            .then((response) => {
+                                //Mostramos por consola un mensaje junto a la respuesta
+                                console.log("Elemento agregado correctamente:", response);
+
+                                this.showBannerMessage("Los cambios se han guardado de forma exitosa", "success");
+                            })
+                            //En caso de que haya ocurrido un error
+                            .catch((error) => {
+                                //Mostramos por consola el mensaje de error segiuido del código de error
+                                console.error("Error al agregar el elemento:", error);
+
+                                if (error.response) {
+                                    console.error("Detalles de la respuesta: " + error.response.data);
+                                }
+                            });
+                    }
+
+                } catch (error) {
+                    console.error("Error al obtener el ID del elemento", error);
+                }
+
 
                 //Mostramos el mensaje de error en el Banner
             } catch (error) {
@@ -261,20 +318,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
         if (checked !== undefined) {
             this.setState({
                 isSwitchOn: checked
-            });
-        }
-    }
-
-    /**
-     * Método donde gestionaremos el campo de texto del ID del grupo
-     * @param event Variable de tipo event
-     * @param newValue Variable de tipo String
-     */
-    private handleIdGrupoChange = (event: React.FormEvent<HTMLInputElement>, newValue?: string) => {
-        //En caso de que se añada contenido en la barra de texto, se añadirá el contenido a la variable "groupID"
-        if (newValue !== undefined) {
-            this.setState({
-                groupID: newValue
             });
         }
     }
@@ -405,7 +448,8 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
      * @param files Variable de tipo File
      */
     private handleFileUpload = (files: File[]) => {
-        console.log("Archivo subido: " + files)
+        this.setState({ attachedFiles: files.length > 0 });
+        this.attachedFilesArray = this.attachedFilesArray.concat(files);
     }
 
     /**
@@ -415,7 +459,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
         //Reseteamos las variables necesarias
         this.setState({
             isSwitchOn: true,
-            groupID: "",
             groupCode: "",
             denomination: "",
             description: "",
@@ -436,30 +479,60 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
     };
 
     /**
-     * Método donde obtendremos los items de la columna "CodigoSector" de la lista "Sectores"
+     * Método que verifica los permisos del usuario para ver elementos de la lista
+     * Actualiza el estado "hasPermissions" en función de si el usuario tiene permisos para ver elementos de la lista o no
      */
-    private _readAllFilesSize = async (): Promise<void> => {
+    private async checkUserPermissions() {
         try {
-            const spCache = spfi(this._sp).using(Caching({ store: "session" }));
+            //Obtenemos los permisos del usuario para la lista "Grupos".
+            const permissions = await this._sp.web.lists.getByTitle("Grupos").effectiveBasePermissions();
 
-            const response: ICodigoSectorResponse[] = await spCache.web.lists
-                .getByTitle(this.LIBRARY_NAME)
-                .items
-                .select("CodigoSelector")();
+            //Comprobamos si el usuario tiene el permiso específico para ver elementos de la lista.
+            if (this.hasPermission(permissions, PermissionKind.ViewListItems)) {
+                //Si el usuario tiene permiso, mostramos un mensaje en la consola.
+                console.log("El usuario tiene permiso para ver elementos de la lista.");
 
-            const items: ICodigoSector[] = response.map((item: ICodigoSectorResponse) => {
-                return {
-                    CodigoSelector: item.CodigoSelector
-                };
-            });
+                //Actualizamos el estado "hasPermissions" a "true" para indicar que el usuario tiene permisos.
+                this.setState({
+                    hasPermissions: true
+                });
 
-            this.setState({ items });
-        } catch (err) {
-            Logger.write(`${this.LOG_SOURCE} (_readAllFilesSize) - ${JSON.stringify(err)} - `, LogLevel.Error);
+                
+            } else {
+                //Si el usuario no tiene permiso, mostramos un mensaje en la consola.
+                console.log("El usuario no tiene permiso para ver elementos de la lista.");
+
+                //Actualizamos el estado "hasPermissions" a "false" para indicar que el usuario no tiene permisos.
+                this.setState({
+                    hasPermissions: false
+                });
+
+                this.showBannerMessage("No tiene permisos para ver el formulario", "error");
+            }
+        } catch (error) {
+            //Si ocurre un error durante la verificación de permisos, mostramos un mensaje de error en la consola.
+            console.error("Error al verificar los permisos:", error);
         }
     }
 
+
+    /**
+     * Método para verificar los permisos del usuario
+     * @param permissions Objeto que contiene los permisos del usuario
+     * @param permissionKind Tipo de permiso que se va a verificar.
+     * @returns Devuelve true si el usuario tiene el permiso especificado, de lo contrario, devuelve false.
+     */
+    private hasPermission(permissions: { High: number; Low: number }, permissionKind: PermissionKind): boolean {
+        // Calcula la máscara de permiso correspondiente para el tipo de permiso.
+        const permissionMask = 1 << permissionKind;
+
+        // Comprueba si el permiso está presente en los bits bajos (Low) o en los bits altos (High) de los permisos.
+        return (permissions.Low & permissionMask) > 0 || (permissions.High & permissionMask) > 0;
+    }
+
+
     render() {
+
         //Constante donde configuraremos las opciones del DropDown del tipo de grupo
         const groupTypeDropDownOptions: IDropdownOption[] = [
             { key: 'Grupo1', text: 'Grupo1' },
@@ -474,8 +547,10 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             { key: 'Tematica3', text: 'Tematica3' }
         ];
 
+        //Constante donde almacenaremos las opciones del código de sector
         const sectorsCode = Array.from(new Set(this.state.items.map(item => item.CodigoSelector)))
 
+        //Constante donde mapearemos las opciones del código de sector
         const sectorsCodeOptions = sectorsCode.map(sectorCode => ({
             key: sectorCode,
             text: sectorCode
@@ -488,6 +563,9 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                 <Taller4 context={this.props.context} />
             )
         }
+
+        //Constante donde almacenaremos el estado de "hasPermissions"
+        const { hasPermissions } = this.state;
 
         //Devolvemos la interfaz del formulario para añadir grupos
         return (
@@ -511,150 +589,150 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                     {this.state.bannerMessage}
                 </div>
 
-                <div>
-                    {/* Añadimos los botones con sus respectivos métodos para darles funcionabilidad */}
+                {hasPermissions ? (
                     <div>
-                        <PrimaryButton onClick={this.handleSave}>Guardar</PrimaryButton>
-                        <PrimaryButton onClick={this.handleCancel} >Cancelar</PrimaryButton>
+                        {/* Añadir aquí todo el contenido del formulario */}
+                        <div>
+                            {/* Añadimos los botones con sus respectivos métodos para darles funcionabilidad */}
+                            <div>
+                                <PrimaryButton onClick={this.handleSave}>Guardar</PrimaryButton>
+                                <PrimaryButton onClick={this.handleCancel} >Cancelar</PrimaryButton>
+                                <PrimaryButton onClick={this.handleReturnToGroups}>Volver a grupos</PrimaryButton>
+                            </div>
+
+                            {/* Añadimos el Toggle (Switch) para mostrar el estado del grupo */}
+                            <div>
+                                <Toggle
+                                    label="Estado"
+                                    checked={this.state.isSwitchOn}
+                                    onChange={this.handleSwitchChange} />
+                            </div>
+
+                            {/* Añadimos el campo de texto para configurar el código del grupo */}
+                            <div>
+                                <TextField
+                                    label='Código del grupo'
+                                    value={this.state.groupCode}
+                                    onChange={this.handleGroupCode}
+                                    required={true} />
+                            </div>
+
+                            {/* Aádimos el campo de texto para configurar la denominación del grupo */}
+                            <div>
+                                <TextField
+                                    label='Denominación'
+                                    value={this.state.denomination}
+                                    onChange={this.handleDenomination}
+                                    required={true} />
+                            </div>
+
+                            {/* Añadimos el campo de texto multi-linea para añadir la descripción del grupo */}
+                            <div>
+                                <TextField
+                                    label='Descripción'
+                                    value={this.state.description}
+                                    onChange={this.handleDescription}
+                                    required={true}
+                                    multiline={true} />
+                            </div>
+
+                            {/* Añadimos el DropDown con las opciones para selecionar el códifgo del sector */}
+                            <div>
+                                <Dropdown
+                                    label='Codigo de sector'
+                                    selectedKey={this.state.sectorCodeCategory}
+                                    options={sectorsCodeOptions}
+                                    required={true}
+                                    onChange={this.handleSectorCodeChange} />
+                            </div>
+
+                            {/* Añadimos el DatePicker para que el usuario seleccione la fecha de finalización del grupo */}
+                            <div>
+                                <DatePicker
+                                    label='Fecha finalización'
+                                    value={this.state.endDate}
+                                    onSelectDate={this.handleEndDate}
+                                    formatDate={(date: Date) => new Intl.DateTimeFormat('es').format(date)} />
+                            </div>
+
+                            {/* Añadimos el DropDown para que el usuario seleccione el tipo de grupo */}
+                            <div>
+                                <Dropdown
+                                    label='Tipo de grupo'
+                                    selectedKey={this.state.groupTypeSelected}
+                                    options={groupTypeDropDownOptions}
+                                    onChange={this.handleGroupTypeChange}
+                                    required={true} />
+                            </div>
+
+                            {/* Añadimos el DropDown para que el usuario seleccione la temática del grupo */}
+                            <div>
+                                <Dropdown
+                                    label='Temática'
+                                    selectedKey={this.state.themeTypeSelected}
+                                    options={themeDropDownOptions}
+                                    onChange={this.handleThemeChange}
+                                    required={true} />
+                            </div>
+
+                            {/* Añadimos el TaxonomyPicker de multiselección para que el usuario pueda seleccionar el tipo de ámbito */}
+                            <div>
+                                <TaxonomyPicker
+                                    label='Ámbito'
+                                    allowMultipleSelections={true}
+                                    termsetNameOrID='35209b03-db22-4535-abe2-9095cd35e586'
+                                    onChange={this.handleTaxonomyPickerChange_ambit}
+                                    isTermSetSelectable={false}
+                                    includeDefaultTermActions={true}
+                                    panelTitle='Ámbito'
+                                    context={this.props.context}
+                                    required={true} />
+                            </div>
+
+                            {/* Añadimos el TaxonomyPicker donde el usuario pueda seleccionar un páis */}
+                            <div>
+                                <TaxonomyPicker
+                                    label='País'
+                                    allowMultipleSelections={false}
+                                    termsetNameOrID='c7defd80-bac0-4c6e-9127-6f36ddd6ca5b'
+                                    onChange={this.handleTaxonomyPickerChange_country}
+                                    isTermSetSelectable={false}
+                                    includeDefaultTermActions={false}
+                                    panelTitle='País'
+                                    context={this.props.context}
+                                    required={true} />
+                            </div>
+
+                            {/* Añadimos el TaxonomyPickler donde el usuario pueda seleccionar una ciudad */}
+                            <div>
+                                <TaxonomyPicker
+                                    label='Ciudad'
+                                    allowMultipleSelections={false}
+                                    termsetNameOrID='8d4abd88-58fe-4eda-a1c2-63dd04a3939e'
+                                    onChange={this.handleTaxonomyPickerChange_city}
+                                    isTermSetSelectable={false}
+                                    includeDefaultTermActions={false}
+                                    panelTitle='Ciudad'
+                                    context={this.props.context}
+                                    required={true} />
+                            </div>
+
+                            <br />
+
+                            {/* Añadimos el elemento UploadFiles para que el usuario pueda adjuntar ficheros */}
+                            <div>
+                                <UploadFiles
+                                    context={this.props.context}
+                                    title='Documentos adjuntos'
+                                    onUploadFiles={this.handleFileUpload} />
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div>
                         <PrimaryButton onClick={this.handleReturnToGroups}>Volver a grupos</PrimaryButton>
                     </div>
-
-                    {/* Añadimos el Toggle (Switch) para mostrar el estado del grupo */}
-                    <div>
-                        <Toggle
-                            label="Estado"
-                            checked={this.state.isSwitchOn}
-                            onChange={this.handleSwitchChange} />
-                    </div>
-
-                    {/* Añadimos el campo de texto para configurar el ID del grupo */}
-                    <div>
-                        <TextField
-                            label='ID del grupo'
-                            value={this.state.groupID}
-                            onChange={this.handleIdGrupoChange}
-                            required={true} />
-                    </div>
-
-                    {/* Añadimos el campo de texto para configurar el código del grupo */}
-                    <div>
-                        <TextField
-                            label='Código del grupo'
-                            value={this.state.groupCode}
-                            onChange={this.handleGroupCode}
-                            required={true} />
-                    </div>
-
-                    {/* Aádimos el campo de texto para configurar la denominación del grupo */}
-                    <div>
-                        <TextField
-                            label='Denominación'
-                            value={this.state.denomination}
-                            onChange={this.handleDenomination}
-                            required={true} />
-                    </div>
-
-                    {/* Añadimos el campo de texto multi-linea para añadir la descripción del grupo */}
-                    <div>
-                        <TextField
-                            label='Descripción'
-                            value={this.state.description}
-                            onChange={this.handleDescription}
-                            required={true}
-                            multiline={true} />
-                    </div>
-
-                    {/* Añadimos el DropDown con las opciones para selecionar el códifgo del sector */}
-                    <div>
-                        <Dropdown
-                            label='Codigo de sector'
-                            selectedKey={this.state.sectorCodeCategory}
-                            options={sectorsCodeOptions}
-                            required={true}
-                            onChange={this.handleSectorCodeChange} />
-                    </div>
-
-                    {/* Añadimos el DatePicker para que el usuario seleccione la fecha de finalización del grupo */}
-                    <div>
-                        <DatePicker
-                            label='Fecha finalización'
-                            value={this.state.endDate}
-                            onSelectDate={this.handleEndDate}
-                            formatDate={(date: Date) => new Intl.DateTimeFormat('es').format(date)} />
-                    </div>
-
-                    {/* Añadimos el DropDown para que el usuario seleccione el tipo de grupo */}
-                    <div>
-                        <Dropdown
-                            label='Tipo de grupo'
-                            selectedKey={this.state.groupTypeSelected}
-                            options={groupTypeDropDownOptions}
-                            onChange={this.handleGroupTypeChange}
-                            required={true} />
-                    </div>
-
-                    {/* Añadimos el DropDown para que el usuario seleccione la temática del grupo */}
-                    <div>
-                        <Dropdown
-                            label='Temática'
-                            selectedKey={this.state.themeTypeSelected}
-                            options={themeDropDownOptions}
-                            onChange={this.handleThemeChange}
-                            required={true} />
-                    </div>
-
-                    {/* Añadimos el TaxonomyPicker de multiselección para que el usuario pueda seleccionar el tipo de ámbito */}
-                    <div>
-                        <TaxonomyPicker
-                            label='Ámbito'
-                            allowMultipleSelections={true}
-                            termsetNameOrID='35209b03-db22-4535-abe2-9095cd35e586'
-                            onChange={this.handleTaxonomyPickerChange_ambit}
-                            isTermSetSelectable={false}
-                            includeDefaultTermActions={true}
-                            panelTitle='Ámbito'
-                            context={this.props.context}
-                            required={true} />
-                    </div>
-
-                    {/* Añadimos el TaxonomyPicker donde el usuario pueda seleccionar un páis */}
-                    <div>
-                        <TaxonomyPicker
-                            label='País'
-                            allowMultipleSelections={false}
-                            termsetNameOrID='c7defd80-bac0-4c6e-9127-6f36ddd6ca5b'
-                            onChange={this.handleTaxonomyPickerChange_country}
-                            isTermSetSelectable={false}
-                            includeDefaultTermActions={false}
-                            panelTitle='País'
-                            context={this.props.context}
-                            required={true} />
-                    </div>
-
-                    {/* Añadimos el TaxonomyPickler donde el usuario pueda seleccionar una ciudad */}
-                    <div>
-                        <TaxonomyPicker
-                            label='Ciudad'
-                            allowMultipleSelections={false}
-                            termsetNameOrID='8d4abd88-58fe-4eda-a1c2-63dd04a3939e'
-                            onChange={this.handleTaxonomyPickerChange_city}
-                            isTermSetSelectable={false}
-                            includeDefaultTermActions={false}
-                            panelTitle='Ciudad'
-                            context={this.props.context}
-                            required={true} />
-                    </div>
-
-                    <br />
-
-                    {/* Añadimos el elemento UploadFiles para que el usuario pueda adjuntar ficheros */}
-                    <div>
-                        <UploadFiles
-                            context={this.props.context}
-                            title='Documentos adjuntos'
-                            onUploadFiles={this.handleFileUpload} />
-                    </div>
-                </div>
+                )}
             </section>
         );
     }

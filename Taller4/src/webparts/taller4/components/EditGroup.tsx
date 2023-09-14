@@ -152,10 +152,9 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
             console.error("Error al actualizar el elemento: " + error);
         }
     }
-
+    
 
     render() {
-
         //En caso de que la variable "showGruops" sea "True"
         if (this.state.showGroups) {
             return (
@@ -163,6 +162,9 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
                 <Taller4 context={this.props.context} />
             )
         }
+
+        const newUrl = window.location.href.split('?')[0] + `?ID=${this.props.selectedItem.CodigoGrupo}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
 
         //Devolvemos la interfaz del WebPart para que los usuarios puedan editar la información de un determinado grupo
         return (
