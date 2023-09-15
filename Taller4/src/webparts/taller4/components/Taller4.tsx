@@ -20,6 +20,7 @@ export interface ITaller4State {
  * Clase donde mostraremos la lista de los grupos en el menu principal del WebPart
  */
 export default class Taller4 extends React.Component<ITaller4Props, ITaller4State> {
+  //Variable donde almacenaremos la URL original (sin el identificador del grupo)
   private originalUrl: string = window.location.href.split("?")[0];
 
   constructor(props: ITaller4Props) {
@@ -71,8 +72,6 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
    */
   private showEditGroup = (): void => {
     this.setState({ showEditGroup: true });
-
-    console.log("selectedItem en Taller4:", this.state.selectedFile);
   }
 
   /**

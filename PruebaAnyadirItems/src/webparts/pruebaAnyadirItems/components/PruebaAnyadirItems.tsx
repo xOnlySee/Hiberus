@@ -5,11 +5,11 @@ import { SPFI } from '@pnp/sp';
 import { getSP } from '../pnpjsConfig';
 import { IPickerTerms, TaxonomyPicker } from '@pnp/spfx-controls-react';
 import { PermissionKind } from '@pnp/sp/security';
+import { SPHttpClient, SPHttpClientResponse, ISPHttpClientOptions } from '@microsoft/sp-http';
 
 interface IPruebaAnyadirItemsState {
   Title: string;
   cityTermnSelected: IPickerTerms;
-  SectorCode: string;
 
   hasPermissions: boolean | null;
 }
@@ -23,8 +23,6 @@ export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirIt
     this.state = {
       Title: "",
       cityTermnSelected: [],
-      SectorCode: "",
-
       hasPermissions: null
     }
 
@@ -45,20 +43,11 @@ export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirIt
     });
   }
 
-  private handleSectorCodeChange = (event: React.FormEvent<HTMLInputElement>, newValue?: string) => {
-    //En caso de que se añada contenido en la barra de texto, se añadirá el contenido a la variable "groupID"
-    if (newValue !== undefined) {
-      this.setState({
-        SectorCode: newValue
-      });
-    }
-  }
-
   private async checkUserPermissions() {
     const listTitle = "Grupos"; // Reemplaza "TuLista" con el título de tu lista
 
     try {
-      
+
       // Verificar los permisos específicos aquí
       const permissions = await this._sp.web.lists.getByTitle(listTitle).effectiveBasePermissions();
       if (this.hasPermission(permissions, PermissionKind.ViewListItems)) {
@@ -78,6 +67,61 @@ export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirIt
     return (permissions.Low & permissionMask) > 0 || (permissions.High & permissionMask) > 0;
   }
 
+
+  private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target && event.target.result) {
+          resolve(event.target.result as ArrayBuffer);
+        } else {
+          reject(new Error("No se pudo leer el archivo."));
+        }
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  private async uploadAttachments(listTitle: string, itemId: number, files: FileList) {
+    try {
+      const webUrl = this.props.context.pageContext.web.absoluteUrl;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const arrayBuffer = await this.readFileAsArrayBuffer(file);
+        const endpoint = `${webUrl}/_api/web/lists/getByTitle('${listTitle}')/items(${itemId})/AttachmentFiles/add(FileName='${file.name}')`;
+
+        try {
+          const response = await this.uploadFile(endpoint, arrayBuffer);
+          console.log(`Archivo adjunto "${file.name}" agregado correctamente. Response:`, response);
+        } catch (error) {
+          console.error(`Error al cargar el archivo adjunto "${file.name}":`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error al cargar archivos adjuntos:", error);
+    }
+  }
+
+
+
+  private async uploadFile(endpoint: string, arrayBuffer: ArrayBuffer): Promise<SPHttpClientResponse> {
+    const spOpts: ISPHttpClientOptions = {
+      body: arrayBuffer,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Content-Length': arrayBuffer.byteLength.toString(),
+      },
+    };
+
+    return this.props.context.spHttpClient.post(endpoint, SPHttpClient.configurations.v1, spOpts);
+  }
+
+
+
+
   private handleSave = async () => {
     try {
       const taxonomyField = {
@@ -92,6 +136,15 @@ export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirIt
       });
 
       console.log("Elemento agregado correctamente:", response);
+
+      // Llamar a la función para cargar archivos adjuntos
+      const listTitle = "Prueba"; // Reemplaza con el título de tu lista
+      const itemId = response.data.Id; // Obtén el ID del elemento recién creado
+      const files = document.getElementById("fileInput") as HTMLInputElement;
+
+      if (files && files.files) {
+        await this.uploadAttachments(listTitle, itemId, files.files);
+      }
 
       // Resto de la lógica después de agregar el elemento
     } catch (error) {
@@ -133,12 +186,14 @@ export default class PruebaAnyadirItems extends React.Component<IPruebaAnyadirIt
         </div>
 
         <div>
-          <TextField
-            label='Código de Sector'
-            value={this.state.SectorCode} // Agregar el valor del estado correspondiente
-            onChange={this.handleSectorCodeChange} // Agregar el manejador correspondiente
+          <input
+            type="file"
+            id="fileInput"
+            multiple={true}
+            accept=".doc,.docx,.pdf,.jpg,.png" // Puedes ajustar las extensiones permitidas
           />
         </div>
+
       </section>
     );
   }

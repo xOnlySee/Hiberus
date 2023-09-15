@@ -3,13 +3,14 @@ import * as React from 'react';
 //Nuevas importaciones
 import { IPickerTerms, TaxonomyPicker } from '@pnp/spfx-controls-react';
 import { DatePicker, Dropdown, IDropdownOption, PrimaryButton, TextField, Toggle } from 'office-ui-fabric-react';
-import { UploadFiles } from '@pnp/spfx-controls-react/lib/UploadFiles';
 import Taller4 from './Taller4';
 import { ICodigoSector } from '../interface';
 import { getSP } from '../pnpjsConfig';
 import { SPFI } from '@pnp/sp';
 import { PermissionKind } from '@pnp/sp/security';
 import Read from '../crud/read';
+import "@pnp/sp/attachments";
+import { SPHttpClient, SPHttpClientResponse, ISPHttpClientOptions } from '@microsoft/sp-http';
 
 interface IAddGroupProps {
     context: any | null;
@@ -78,9 +79,6 @@ interface IAddGroupState {
 export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupState> {
     //Objeto de tipo SPFI
     private _sp: SPFI;
-
-    //Array donde alacenará los ficheros adjuntados en el formulario
-    private attachedFilesArray: Array<File> = [];
 
     constructor(props: IAddGroupProps) {
         super(props);
@@ -174,63 +172,41 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
         return errors.length === 0;
     }
 
-
     /**
      * Método donde delcararemos la funcionabilidad del botón "Guardar"
      */
     private handleSave = async () => {
+        // En caso de que no se haya adjuntado ningún archivo
+
         //En caso de que no se haya adjuntado ningun archivo
-        if (!this.state.attachedFiles) {
-            //Mostramos un error en el banner para informar al usuario
-            this.showBannerMessage("Debes de adjuntar un archivo", "error");
-            return;
-        }
-
-        this.attachedFilesArray.forEach((file, index) => {
-            console.log(`Archivo ${index + 1}:`);
-            console.log("Nombre del archivo:", file.name);
-            console.log("Tipo de archivo:", file.type);
-        });
-
+        // if (!this.state.attachedFiles) {
+        //     //Mostramos un error en el banner para informar al usuario
+        //     this.showBannerMessage("Debes de adjuntar un archivo", "error");
+        //     return;
+        // }
 
         if (this.validateFormFields()) {
             try {
-                //Mostramos por consola las opciones que el usuario ha rellenado en el formulario
-                console.log("Estado: " + this.state.isSwitchOn +
-                    "\nCódigo del grupo: " + this.state.groupCode +
-                    "\nDenominacion: " + this.state.denomination +
-                    "\nDescripción: " + this.state.description +
-                    "\nCodigo sector: " + this.state.sectorCodeCategory +
-                    "\nFecha de creación: " + this.state.creationDate +
-                    "\nFecha finalización: " + this.state.endDate +
-                    "\nTipo grupo: " + this.state.groupTypeSelected +
-                    "\nTemática: " + this.state.themeTypeSelected +
-                    "\nAmbito: " + this.state.ambitTermnSelected[0].name +
-                    "\nPaís: " + this.state.countryTermnSelected[0].name +
-                    "\nCiudad: " + this.state.cityTermnSelected[0].name);
-
-                //Constante utilizada para almacenar la taxonomia seleccionada del ámbito
+                // Constantes utilizadas para almacenar la taxonomía seleccionada
                 const ambitTermnSelected = {
                     Label: this.state.ambitTermnSelected[0].name,
                     TermGuid: this.state.ambitTermnSelected[0].key,
-                    WssId: -1
-                }
+                    WssId: -1,
+                };
 
-                //Contante utilizada para almacenar la taxonomia seleccionada del país
                 const countryTermnSelected = {
                     Label: this.state.countryTermnSelected[0].name,
                     TermGuid: this.state.countryTermnSelected[0].key,
                     WssId: -1,
-                }
+                };
 
-                //Contante utilizada para almacenar la taxonomia seleccionada de la ciudad
                 const cityTermnSelected = {
                     Label: this.state.cityTermnSelected[0].name,
                     TermGuid: this.state.cityTermnSelected[0].key,
                     WssId: -1,
-                }
+                };
 
-                //Almacenamos en la constante "newItems" todos los datos que queremos almacenar en la lista
+                // Almacenamos en la constante "newItems" todos los datos que queremos almacenar en la lista
                 const newItems = {
                     CodigoGrupo: this.state.groupCode,
                     CodigoSector_2: this.state.sectorCodeCategory,
@@ -243,60 +219,102 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                     Tematica: this.state.themeTypeSelected,
                     Ambito: ambitTermnSelected,
                     Pais: countryTermnSelected,
-                    Ciudad: cityTermnSelected
-                }
+                    Ciudad: cityTermnSelected,
+                };
 
-                //Almacenamos en la constante "groupCode" el ID del grupo castaeado a número entero
+                // Almacenamos en la constante "groupCode" el ID del grupo castaeado a número entero
                 const groupCode = parseInt(this.state.groupCode, 10);
 
                 try {
-                    //Almacenamos en la constante "items" el resultado de la búsqueda del ID código del grupo
+                    // Almacenamos en la constante "items" el resultado de la búsqueda del ID código del grupo
                     const items = await this._sp.web.lists.getByTitle("Grupos")
                         .items.filter(`CodigoGrupo eq ${groupCode}`)
                         .select("Id")();
 
-                    //En caso de que obtenga los valores
-                    if (items && items.length == 1) {
+                    // En caso de que obtenga los valores
+                    if (items && items.length === 1) {
                         console.log("Ya existe una lista con el código de grupo: " + groupCode);
 
-                        //Mostramos en el banner que el grupo ya existe y no se ha podido añadir
-                        this.showBannerMessage("El grupo ya existe y no se puede añadir", "error");
-
-                        //En cualquier otro caso
+                        // Mostramos en el banner que el grupo ya existe y no se ha podido añadir
+                        this.showBannerMessage("El grupo ya existe y no se puede añadir", "warning");
                     } else {
                         console.log("La lista se puede añadir");
 
-                        //Usamos el objeto "_sp" donde indicamos el nombre de la lista y los items que queremos añadir
-                        await this._sp.web.lists.getByTitle("Grupos").items.add(newItems)
-                            //En caso de que los items se hayan podido añadir a la lista
-                            .then((response) => {
-                                //Mostramos por consola un mensaje junto a la respuesta
-                                console.log("Elemento agregado correctamente:", response);
+                        // Usamos el objeto "_sp" donde indicamos el nombre de la lista y los items que queremos añadir
+                        const response = await this._sp.web.lists.getByTitle("Grupos").items.add(newItems);
 
-                                this.showBannerMessage("Los cambios se han guardado de forma exitosa", "success");
-                            })
-                            //En caso de que haya ocurrido un error
-                            .catch((error) => {
-                                //Mostramos por consola el mensaje de error segiuido del código de error
-                                console.error("Error al agregar el elemento:", error);
+                        // Obtener el ID del elemento agregado
+                        const itemId = response.data.Id;
+                        const files = document.getElementById("fileInput") as HTMLInputElement;
 
-                                if (error.response) {
-                                    console.error("Detalles de la respuesta: " + error.response.data);
-                                }
-                            });
+                        // Cargar archivos adjuntos
+                        await this.uploadAttachments("Grupos", itemId, files.files);
+
+                        // Resto del código después de agregar el elemento...
+
+                        // Mostrar el mensaje de éxito en el Banner
+                        this.showBannerMessage("Los cambios se han guardado de forma exitosa", "success");
                     }
-
                 } catch (error) {
                     console.error("Error al obtener el ID del elemento", error);
                 }
-
-
-                //Mostramos el mensaje de error en el Banner
             } catch (error) {
+                console.error("Error al validar el formulario:", error);
                 this.showBannerMessage("Ha ocurrido un error al guardar los cambios", "error");
             }
         }
     }
+
+
+    private async uploadAttachments(listTitle: string, itemId: number, files: FileList) {
+        try {
+            const webUrl = this.props.context.pageContext.web.absoluteUrl;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const arrayBuffer = await this.readFileAsArrayBuffer(file);
+                const endpoint = `${webUrl}/_api/web/lists/getByTitle('${listTitle}')/items(${itemId})/AttachmentFiles/add(FileName='${file.name}')`;
+
+                try {
+                    const response = await this.uploadFile(endpoint, arrayBuffer);
+                    console.log(`Archivo adjunto "${file.name}" agregado correctamente. Response:`, response);
+                } catch (error) {
+                    console.error(`Error al cargar el archivo adjunto "${file.name}":`, error);
+                }
+            }
+        } catch (error) {
+            console.error("Error al cargar archivos adjuntos:", error);
+        }
+    }
+
+    private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if (event.target && event.target.result) {
+                    resolve(event.target.result as ArrayBuffer);
+                } else {
+                    reject(new Error("No se pudo leer el archivo."));
+                }
+            };
+            reader.onerror = (error) => reject(error);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    private async uploadFile(endpoint: string, arrayBuffer: ArrayBuffer): Promise<SPHttpClientResponse> {
+        const spOpts: ISPHttpClientOptions = {
+            body: arrayBuffer,
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Content-Length': arrayBuffer.byteLength.toString(),
+            },
+        };
+
+        return this.props.context.spHttpClient.post(endpoint, SPHttpClient.configurations.v1, spOpts);
+    }
+
 
     /**
      * Método donde gestionará el botón de volver a grupos
@@ -444,15 +462,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
     }
 
     /**
-     * Método donde gestionaremos el apartado de subir archivos al WebPart
-     * @param files Variable de tipo File
-     */
-    private handleFileUpload = (files: File[]) => {
-        this.setState({ attachedFiles: files.length > 0 });
-        this.attachedFilesArray = this.attachedFilesArray.concat(files);
-    }
-
-    /**
      * Método donde gestionaremos el botón de cancelar
      */
     private handleCancel = () => {
@@ -497,7 +506,7 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                     hasPermissions: true
                 });
 
-                
+
             } else {
                 //Si el usuario no tiene permiso, mostramos un mensaje en la consola.
                 console.log("El usuario no tiene permiso para ver elementos de la lista.");
@@ -523,10 +532,10 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
      * @returns Devuelve true si el usuario tiene el permiso especificado, de lo contrario, devuelve false.
      */
     private hasPermission(permissions: { High: number; Low: number }, permissionKind: PermissionKind): boolean {
-        // Calcula la máscara de permiso correspondiente para el tipo de permiso.
+        //Calcula la máscara de permiso correspondiente para el tipo de permiso.
         const permissionMask = 1 << permissionKind;
 
-        // Comprueba si el permiso está presente en los bits bajos (Low) o en los bits altos (High) de los permisos.
+        //Comprueba si el permiso está presente en los bits bajos (Low) o en los bits altos (High) de los permisos.
         return (permissions.Low & permissionMask) > 0 || (permissions.High & permissionMask) > 0;
     }
 
@@ -721,10 +730,10 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
 
                             {/* Añadimos el elemento UploadFiles para que el usuario pueda adjuntar ficheros */}
                             <div>
-                                <UploadFiles
-                                    context={this.props.context}
-                                    title='Documentos adjuntos'
-                                    onUploadFiles={this.handleFileUpload} />
+                                <input
+                                    type="file"
+                                    id="fileInput"
+                                    multiple={true} />
                             </div>
                         </div>
                     </div>
