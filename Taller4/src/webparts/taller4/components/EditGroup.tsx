@@ -142,14 +142,19 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
                 //Realizamos la operación de actualización de los nuevos elementos
                 await this._sp.web.lists.getByTitle("Grupos").items.getById(itemId).update(data);
 
-                console.info("Éxito en la actualización");
+                //Mostramos un aler() para informar que el grupo se ha actualizado de forma exitosa
+                alert("Grupo actualizado con éxito");
 
                 //En caso de que no encuentre ningun elemento con el mismo código de grupo
             } else {
                 console.error("Elemento no encontrado o múltiples elementos encontrados.");
             }
         } catch (error) {
+            //Mostramos por consola un mensaje de error seguido del error
             console.error("Error al actualizar el elemento: " + error);
+
+            //Mostramos un alert() para informar al usuario que ha ocurrido un error a la hora de actualizar el grupo
+            alert("Error al actualizar el grupo");
         }
     }
 
