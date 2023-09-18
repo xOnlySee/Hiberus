@@ -126,6 +126,5 @@ export default class Taller4 extends React.Component<ITaller4Props, ITaller4Stat
         )}
       </div>
     );
-
   }
 }

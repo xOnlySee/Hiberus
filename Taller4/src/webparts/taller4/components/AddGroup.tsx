@@ -66,9 +66,6 @@ interface IAddGroupState {
     //String donde almacenará el tipo de mensaje del formulario
     bannerMessageType: 'error' | 'warning' | 'success' | 'info';
 
-    //Boolean donde almacenará si tiene archivos adjuntados
-    attachedFiles: boolean;
-
     //Boolean donde almacenará si el usuario tendrá permisos o no
     hasPermissions: boolean | null;
 }
@@ -102,7 +99,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             showGroups: false,
             bannerMessage: "",
             bannerMessageType: 'success',
-            attachedFiles: false,
             hasPermissions: null
         };
 
@@ -176,15 +172,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
      * Método donde delcararemos la funcionabilidad del botón "Guardar"
      */
     private handleSave = async () => {
-        // En caso de que no se haya adjuntado ningún archivo
-
-        //En caso de que no se haya adjuntado ningun archivo
-        // if (!this.state.attachedFiles) {
-        //     //Mostramos un error en el banner para informar al usuario
-        //     this.showBannerMessage("Debes de adjuntar un archivo", "error");
-        //     return;
-        // }
-
         if (this.validateFormFields()) {
             try {
                 // Constantes utilizadas para almacenar la taxonomía seleccionada
@@ -237,59 +224,116 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
 
                         // Mostramos en el banner que el grupo ya existe y no se ha podido añadir
                         this.showBannerMessage("El grupo ya existe y no se puede añadir", "warning");
+
+                        //En otro caso
                     } else {
-                        console.log("La lista se puede añadir");
-
-                        // Usamos el objeto "_sp" donde indicamos el nombre de la lista y los items que queremos añadir
-                        const response = await this._sp.web.lists.getByTitle("Grupos").items.add(newItems);
-
-                        // Obtener el ID del elemento agregado
-                        const itemId = response.data.Id;
+                        //Obtenemos el elemento de HTML. Contiene los archivos adjuntos seleccionados por el usuario
                         const files = document.getElementById("fileInput") as HTMLInputElement;
 
-                        // Cargar archivos adjuntos
-                        await this.uploadAttachments("Grupos", itemId, files.files);
+                        //Variable donde alamcenaremos el ID del elementos agregado
+                        let addedItemId: number | undefined = undefined;
 
-                        // Resto del código después de agregar el elemento...
+                        //Llamamos a la función y almacenamos si hay archivos adjuntos
+                        const hasAttachments = await this.uploadAttachments("Grupos", addedItemId, files?.files);
 
-                        // Mostrar el mensaje de éxito en el Banner
-                        this.showBannerMessage("Los cambios se han guardado de forma exitosa", "success");
+                        //En caso de que devuelva "True" (hay archivos adjuntos)
+                        if (hasAttachments) {
+                            try {
+                                //Usamos el objeto "_sp" donde indicamos el nombre de la lista y los items que queremos añadir
+                                const addItemResponse = await this._sp.web.lists.getByTitle("Grupos").items.add(newItems);
+
+                                //Obtener el ID del elemento agregado y lo almacenamos en "addedItemId"
+                                addedItemId = addItemResponse.data.Id;
+
+                                //Volvemos a llamar al método "uploadAttachments" para cargar los archivos a la lista
+                                await this.uploadAttachments("Grupos", addedItemId, files.files);
+
+                                //Mostrar el mensaje de éxito en el Banner
+                                this.showBannerMessage("Los cambios se han guardado de forma exitosa", "success");
+                            } catch (error) {
+
+                                //Mostramos el mensaje de error en el Banner
+                                this.showBannerMessage("Error al agregar el elemento", "error");
+                            }
+
+                            //En caso de que devuelva "False" (no haya archivos adjuntos)
+                        } else {
+                            //Mostrar un mensaje de error en el Banner
+                            this.showBannerMessage("No se adjuntaron archivos. La operación ha fallado.", "error");
+                        }
+
                     }
                 } catch (error) {
                     console.error("Error al obtener el ID del elemento", error);
                 }
             } catch (error) {
                 console.error("Error al validar el formulario:", error);
+
+                //Mostramos un mensaje de error en el Banner en caso de que se produzca un error general
                 this.showBannerMessage("Ha ocurrido un error al guardar los cambios", "error");
             }
         }
     }
 
-
-    private async uploadAttachments(listTitle: string, itemId: number, files: FileList) {
+    /**
+     * Método donde nos permitirá cargar los archivos adjuntois en la lista de SharePoint
+     */
+    private async uploadAttachments(listTitle: string, itemId: number, files: FileList): Promise<boolean> {
         try {
+            //Almacenamos en la constante "webUrl" la URL del sitio web de SharePoint
             const webUrl = this.props.context.pageContext.web.absoluteUrl;
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const arrayBuffer = await this.readFileAsArrayBuffer(file);
-                const endpoint = `${webUrl}/_api/web/lists/getByTitle('${listTitle}')/items(${itemId})/AttachmentFiles/add(FileName='${file.name}')`;
+            //Comprobamos que haya archivos adjuntos
 
-                try {
-                    const response = await this.uploadFile(endpoint, arrayBuffer);
-                    console.log(`Archivo adjunto "${file.name}" agregado correctamente. Response:`, response);
-                } catch (error) {
-                    console.error(`Error al cargar el archivo adjunto "${file.name}":`, error);
+            //En caso de que no haya adjuntos....
+            if (files.length === 0) {
+                //Devolvemos "False"
+                return false;
+
+                //En caso de que haya archivos adjuntos...
+            } else {
+                //Recorremos la lista donde se almacenan los archivos adjuntos
+                for (let i = 0; i < files.length; i++) {
+                    //Almacenamos en la constante "file" el archivo actual
+                    const file = files[i];
+
+                    //Almacenamos en al constante "arrayBuffer" y llamamos al método "readFileArrayBuffer"
+                    const arrayBuffer = await this.readFileAsArrayBuffer(file);
+
+                    //Almacenamos en la constante "endPoint" el punto final para almacenar los archivos adjuntos en la lista
+                    const endpoint = `${webUrl}/_api/web/lists/getByTitle('${listTitle}')/items(${itemId})/AttachmentFiles/add(FileName='${file.name}')`;
+
+                    try {
+                        //Cargamos los elementos usando el método "uploadFile" y donde le pasamos los parámetros necesarios
+                        await this.uploadFile(endpoint, arrayBuffer);
+
+                    } catch (error) {
+                        //Mostramos por consola el archivo que nos haya dado error
+                        console.error(`Error al cargar el archivo adjunto "${file.name}":`, error);
+                    }
                 }
+
+                //Devolvemos "True"
+                return true;
             }
         } catch (error) {
-            console.error("Error al cargar archivos adjuntos:", error);
+            //Devolvemos "False" en caso de que se haya provocado un error
+            return false;
         }
     }
 
+
+    /**
+     * Método que lee el archivo y lo convierte de tipo buffer
+     * @param file Objeto de tipo File
+     * @returns Buffer de tipo array
+     */
     private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
         return new Promise((resolve, reject) => {
+            //Constante donde almacenamos en "reader" la instancia de "FileReader" (usado para leer archivos)
             const reader = new FileReader();
+
+            //Mensajador de eventos que se ejecutará cuando el proceso de lecura del archivo se haya completado de forma exitosa
             reader.onload = (event) => {
                 if (event.target && event.target.result) {
                     resolve(event.target.result as ArrayBuffer);
@@ -297,14 +341,28 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                     reject(new Error("No se pudo leer el archivo."));
                 }
             };
+
+            //Menejador de eventos que se ejecutará cuando el proceso de lectura haya finalizado por por un proceso
             reader.onerror = (error) => reject(error);
+
+            //Inicia la operación de lectura del archivo en formator de buffer
             reader.readAsArrayBuffer(file);
         });
     }
 
+    /**
+     * Método donde cargaremos el archivo a la lista de SharePoint
+     * @param endpoint Variable de tipo String donde contiene la URL donde se subirá el archivo a la lista de SharePoint
+     * @param arrayBuffer ArrayBuffer que contiene el contenido del archivo que se va a cargar
+     * @returns Devuelve la solicitud HTTP
+     */
     private async uploadFile(endpoint: string, arrayBuffer: ArrayBuffer): Promise<SPHttpClientResponse> {
+        //Almacenamos en la variable "spOpts" las opciones de la solicitud HTTP
         const spOpts: ISPHttpClientOptions = {
+            //Configuramos el cuerpo de la solicitudd
             body: arrayBuffer,
+
+            //Configuramos la cabecera de la solicitud
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
@@ -312,9 +370,9 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
             },
         };
 
+        //Usamos la clase SPHttpClient para realizar la solicitud POST al endpoint
         return this.props.context.spHttpClient.post(endpoint, SPHttpClient.configurations.v1, spOpts);
     }
-
 
     /**
      * Método donde gestionará el botón de volver a grupos
@@ -506,7 +564,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
                     hasPermissions: true
                 });
 
-
             } else {
                 //Si el usuario no tiene permiso, mostramos un mensaje en la consola.
                 console.log("El usuario no tiene permiso para ver elementos de la lista.");
@@ -541,7 +598,6 @@ export default class AddGroup extends React.Component<IAddGroupProps, IAddGroupS
 
 
     render() {
-
         //Constante donde configuraremos las opciones del DropDown del tipo de grupo
         const groupTypeDropDownOptions: IDropdownOption[] = [
             { key: 'Grupo1', text: 'Grupo1' },

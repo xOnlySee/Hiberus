@@ -152,7 +152,7 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
             console.error("Error al actualizar el elemento: " + error);
         }
     }
-    
+
 
     render() {
         //En caso de que la variable "showGruops" sea "True"
@@ -163,7 +163,10 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
             )
         }
 
+        //Almacenamos en la constante "newUrl" la nueva URL formateada con el ID del código de grupo
         const newUrl = window.location.href.split('?')[0] + `?ID=${this.props.selectedItem.CodigoGrupo}`;
+
+        //Establecemos la URL con el contenido de la constante de "newUrl"
         window.history.pushState({ path: newUrl }, '', newUrl);
 
         //Devolvemos la interfaz del WebPart para que los usuarios puedan editar la información de un determinado grupo
@@ -211,6 +214,5 @@ export default class AddGroup extends React.Component<IEditGroupProps, IEditGrou
                 </div>
             </section>
         );
-
     }
 }
