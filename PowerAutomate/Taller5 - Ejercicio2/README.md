@@ -24,3 +24,6 @@ El flujo se inicia automáticamente cuando se detecta la adición de un nuevo el
      - Se envía un correo electrónico al usuario que añadió el elemento, informando sobre la denegación.
      - Se añade un mensaje en Microsoft Teams utilizando el bot disponible.
      - Se actualiza el estado del elemento en la lista como "Denegado".
+    
+![Texto alternativo](https://raw.githubusercontent.com/xOnlySee/Hiberus/main/PowerAutomate/Taller5%20-%20Ejercicio2/Taller%205%20-%20Ejercicio2_imagen.png?token=GHSAT0AAAAAACMTHFJARVAFOHRU3OG3Z7XAZNL6M3A)
+
